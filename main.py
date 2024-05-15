@@ -1,0 +1,3 @@
+import ruminater
+
+ruminater.main()
