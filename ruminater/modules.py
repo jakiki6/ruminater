@@ -26,6 +26,9 @@ class EntryModule(module.RuminaterModule):
 
         return meta
 
+def chew(blob):
+    return EntryModule(blob).chew()
+
 try:
     from PIL import Image, ExifTags
 
@@ -89,3 +92,23 @@ try:
     mappings["JPEG image data"] = JpegModule
 except:
     print("pillow not found, skipping JPEG parsing")
+
+import zipfile
+
+class ZipModule(module.RuminaterModule):
+    def chew(self):
+        zf = zipfile.ZipFile(self.blob, "r")
+
+        files = []
+        for fileinfo in zf.infolist():
+            print(fileinfo, dir(fileinfo))
+
+            file = {}
+            file["name"] = fileinfo.filename
+            file["content"] = chew(zf.open(fileinfo.filename, "r"))
+
+            files.append(file)
+
+        return {"files": files}
+
+mappings["Zip archive data"] = ZipModule
