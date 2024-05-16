@@ -1,4 +1,4 @@
-import magic, json
+import magic, json, hashlib
 from . import module
 
 mappings = {}
@@ -8,14 +8,23 @@ class EntryModule(module.RuminaterModule):
         data = self.blob.read()
         self.blob.seek(0)
 
+        meta = {}
+
         data_type = magic.from_buffer(data)
         data_len = len(data)
+        data_hash = hashlib.sha256(data).hexdigest()
+
+        meta["length"] = data_len
+        meta["hash-sha256"] = data_hash
+
         del data    # free RAM
 
         if data_type.split(",")[0] in mappings:
-            return mappings[data_type.split(",")[0]](self.blob).chew()
+            meta |= mappings[data_type.split(",")[0]](self.blob).chew()
         else:
-            return {"type": "blob", "libmagic_type": data_type, "length": data_len}
+            meta |= {"type": "blob", "libmagic-type": data_type}
+
+        return meta
 
 try:
     from PIL import Image, ExifTags
