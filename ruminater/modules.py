@@ -120,6 +120,6 @@ class ZipModule(module.RuminaterModule):
 
             files.append(file)
 
-        return {"files": files}
+        return {"type": "zip", "comment": zf.comment.decode("utf-8"), "files": files}
 
 mappings["Zip archive data"] = ZipModule
