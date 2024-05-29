@@ -17,5 +17,5 @@ try:
             return file
 
     mappings["ISO Media"] = Mp4Module
-except:
+except ModuleNotFoundError:
     print("pymp4 not installed, skipping MP4 parsing")

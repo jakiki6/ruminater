@@ -62,5 +62,30 @@ try:
             return meta
 
     mappings["JPEG image data"] = JpegModule
-except:
-    print("pillow not found, skipping JPEG parsing")
+
+    class PngModule(module.RuminaterModule):
+        def chew(self):
+            img = Image.open(self.blob)
+
+            meta = {}
+            meta["type"] = "png"
+            meta["width"], meta["height"] = img.size
+            meta["mode"] = img.mode
+
+            self.blob.seek(8)
+            meta["chunks"] = []
+            while True:
+                length = int.from_bytes(self.blob.read(4), "big")
+                chunk_type = self.blob.read(4)
+                self.blob.read(length + 4)
+
+                meta["chunks"].append({"chunk-type": chunk_type.decode("utf-8"), "length": length, "critical": chunk_type[0] & 32 == 0, "private": chunk_type[1] & 32 == 1, "conforming": chunk_type[2] & 32 == 0, "safe-to-copy": chunk_type[3] & 32 == 1})
+
+                if chunk_type == b"IEND":
+                    break
+
+            return meta
+
+    mappings["PNG image data"] = PngModule
+except ModuleNotFoundError:
+    print("pillow not found, skipping JPEG and PNG parsing")
