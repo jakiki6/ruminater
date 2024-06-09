@@ -29,4 +29,4 @@ class EntryModule(module.RuminaterModule):
 def chew(blob):
     return EntryModule(blob).chew()
 
-from . import containers, images, videos
+from . import containers, images, videos, documents
