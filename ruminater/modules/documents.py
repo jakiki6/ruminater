@@ -47,3 +47,18 @@ class DocxModule(module.RuminaterModule):
         return meta
 
 mappings["Microsoft Word 2007+"] = DocxModule
+
+try:
+    from pypdf import PdfReader
+
+    class PdfModule(module.RuminaterModule):
+        def chew(self):
+            doc = PdfReader(self.blob)
+            meta = {}
+            meta["type"] = "pdf"
+            meta["metadata"] = dict(doc.metadata)
+
+            return meta
+
+except ModuleNotFoundError:
+    print("pypdf not found, skipping PDF parsing")
