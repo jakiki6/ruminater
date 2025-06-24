@@ -1,4 +1,4 @@
-import magic, json, hashlib
+import magic, json, hashlib, re
 from .. import module
 
 mappings = {}
@@ -19,9 +19,13 @@ class EntryModule(module.RuminaterModule):
 
         del data    # free RAM
 
-        if data_type.split(",")[0] in mappings:
-            meta |= mappings[data_type.split(",")[0]](self.blob).chew()
-        else:
+        matched = False
+        for k, v in mappings.items():
+            if re.match(k, data_type):
+                meta |= v(self.blob).chew()
+                matched = True
+
+        if not matched:
             meta |= {"type": "blob", "libmagic-type": data_type}
 
         return meta

@@ -61,7 +61,7 @@ try:
 
             return meta
 
-    mappings["JPEG image data"] = JpegModule
+    mappings["^JPEG.*$"] = JpegModule
 
     class PngModule(module.RuminaterModule):
         def chew(self):
@@ -89,6 +89,6 @@ try:
 
             return meta
 
-    mappings["PNG image data"] = PngModule
+    mappings["^PNG.*$"] = PngModule
 except ModuleNotFoundError:
     print("pillow not found, skipping JPEG and PNG parsing")
