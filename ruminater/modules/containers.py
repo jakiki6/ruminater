@@ -30,4 +30,4 @@ class ZipModule(module.RuminaterModule):
 
         return {"type": "zip", "comment": zf.comment.decode("utf-8"), "files": files}
 
-mappings["Zip archive data"] = ZipModule
+mappings["^Zip archive data.*$"] = ZipModule

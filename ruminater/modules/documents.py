@@ -46,7 +46,7 @@ class DocxModule(module.RuminaterModule):
 
         return meta
 
-mappings["Microsoft Word 2007+"] = DocxModule
+mappings["^Microsoft Word.*$"] = DocxModule
 
 try:
     from pypdf import PdfReader
@@ -60,5 +60,6 @@ try:
 
             return meta
 
+    mappings["^PDF document.*$"] = PdfModule
 except ModuleNotFoundError:
     print("pypdf not found, skipping PDF parsing")
