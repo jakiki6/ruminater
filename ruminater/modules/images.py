@@ -74,15 +74,18 @@ try:
 
             self.blob.seek(8)
             meta["chunks"] = []
-            while True:
-                length = int.from_bytes(self.blob.read(4), "big")
-                chunk_type = self.blob.read(4)
-                self.blob.read(length + 4)
+            try:
+                while True:
+                    length = int.from_bytes(self.blob.read(4), "big")
+                    chunk_type = self.blob.read(4)
+                    self.blob.read(length + 4)
 
-                meta["chunks"].append({"chunk-type": chunk_type.decode("utf-8"), "length": length, "critical": chunk_type[0] & 32 == 0, "private": chunk_type[1] & 32 == 1, "conforming": chunk_type[2] & 32 == 0, "safe-to-copy": chunk_type[3] & 32 == 1})
+                    meta["chunks"].append({"chunk-type": chunk_type.decode("utf-8"), "length": length, "critical": chunk_type[0] & 32 == 0, "private": chunk_type[1] & 32 == 1, "conforming": chunk_type[2] & 32 == 0, "safe-to-copy": chunk_type[3] & 32 == 1})
 
-                if chunk_type == b"IEND":
-                    break
+                    if chunk_type == b"IEND" and False:
+                        break
+            except:
+                pass
 
             return meta
 
