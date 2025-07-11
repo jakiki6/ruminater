@@ -1,23 +1,28 @@
 import magic, json, hashlib, re
 from .. import module
+from ..buf import *
 
 mappings = {}
 
 class EntryModule(module.RuminaterModule):
     def chew(self):
-        data = self.blob.read()
-        self.blob.seek(0)
-
         meta = {}
 
-        data_type = magic.from_buffer(data)
-        data_len = len(data)
-        data_hash = hashlib.sha256(data).hexdigest()
+        data_len = self.blob.size()
+
+        data_type = magic.from_buffer(self.blob.peek(65536))
+        self.blob.seek(0)
+
+        h = hashlib.sha256()
+        i = data_len
+        while i > 0:
+            h.update(self.blob.read(1<<24))
+            i -= 1<<24
+        self.blob.seek(0)
+        data_hash = h.hexdigest()
 
         meta["length"] = data_len
         meta["hash-sha256"] = data_hash
-
-        del data    # free RAM
 
         matched = False
         for k, v in mappings.items():
@@ -31,6 +36,6 @@ class EntryModule(module.RuminaterModule):
         return meta
 
 def chew(blob):
-    return EntryModule(blob).chew()
+    return EntryModule(Buf(blob)).chew()
 
 from . import containers, images, videos, documents
