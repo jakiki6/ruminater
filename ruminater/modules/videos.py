@@ -435,6 +435,8 @@ class Mp4Module(module.RuminaterModule):
             atom["data"]["version"] = version
             atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
             atom["data"]["sample_dep_type_count"] = len(self.blob.readunit())
+        elif typ[0] == "©":
+            atom["data"]["payload"] = self.blob.readunit().hex()
         else:
             atom["unknown"] = True
 
