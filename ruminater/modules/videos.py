@@ -1,3 +1,4 @@
+import uuid
 from . import mappings, chew
 from .. import module
 
@@ -44,11 +45,17 @@ class Mp4Module(module.RuminaterModule):
                 atom["data"]["compatible_brands"].append(self.blob.read(4).decode())
                 length -= 4
         elif typ == "moov":
-            atom["data"] = []
+            atom["data"]["atoms"] = []
             while length > 0:
                 data = self.read_atom()
-                atom["data"].append(data)
+                atom["data"]["atoms"].append(data)
                 length -= data["length"]
+        elif typ == "uuid":
+            atom["data"]["uuid"] = str(uuid.UUID(bytes=self.blob.read(16)))
+            length -= 16
+
+            if length > 0:
+                atom["data"]["user-data"] = self.blob.read(length).decode("utf-8")
         else:
             self.blob.skip(length)
 
