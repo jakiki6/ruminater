@@ -6,6 +6,7 @@ class Mp4Module(module.RuminaterModule):
     def chew(self):
         file = {}
 
+        file["type"] = "mp4"
         file["atoms"] = []
         while not self.blob.isend():
             file["atoms"].append(self.read_atom())
