@@ -97,8 +97,6 @@ class Mp4Module(module.RuminaterModule):
                 atom["data"]["matrix"] = self.blob.read(36).hex()
                 atom["data"]["pre_defined"] = self.blob.read(24).hex()
                 atom["data"]["next_track_ID"] = int.from_bytes(self.blob.read(4), "big")
-
-            self.blob.skipunit()
         elif typ == "tkhd":
             version = self.blob.read(1)[0]
             atom["data"]["version"] = version
@@ -139,12 +137,8 @@ class Mp4Module(module.RuminaterModule):
                 atom["data"]["matrix"] = self.blob.read(36).hex()
                 atom["data"]["width"] = int.from_bytes(self.blob.read(4), "big") / 65536
                 atom["data"]["height"] = int.from_bytes(self.blob.read(4), "big") / 65536
-
-
-            self.blob.skipunit()
         elif typ == "edts":
             atom["data"] = self.read_atom()
-            self.blob.skipunit()
         elif typ == "elst":
             version = self.blob.read(1)[0]
             atom["data"]["version"] = version
@@ -169,8 +163,6 @@ class Mp4Module(module.RuminaterModule):
                     entry["media_rate_fraction"] = int.from_bytes(self.blob.read(2), "big")
 
                     atom["data"]["entries"].append(entry)
-
-            self.blob.skipunit()
         elif typ == "mdhd":
             version = self.blob.read(1)[0]
             atom["data"]["version"] = version
@@ -195,8 +187,6 @@ class Mp4Module(module.RuminaterModule):
 
                 atom["data"]["language"] = mp4_decode_mdhd_language(self.blob.read(2))
                 atom["data"]["pre_defined"] = self.blob.read(2).hex()
-
-            self.blob.skipunit()
         elif typ == "hdlr":
             version = self.blob.read(1)[0]
             atom["data"]["version"] = version
@@ -211,7 +201,6 @@ class Mp4Module(module.RuminaterModule):
             atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
             atom["data"]["graphicsmode"] = int.from_bytes(self.blob.read(2), "big") 
             atom["data"]["opcolor"] = [int.from_bytes(self.blob.read(2), "big") for _ in range(0, 3)]
-            self.blob.skipunit()
         elif typ in ("dref", "stsd"):
             version = self.blob.read(1)[0]
             atom["data"]["version"] = version
@@ -221,8 +210,6 @@ class Mp4Module(module.RuminaterModule):
             atom["data"]["entries"] = []
             for i in range(0, entry_count):
                 atom["data"]["entries"].append(self.read_atom())
-
-            self.blob.skipunit()
         elif typ == "url ":
             version = self.blob.read(1)[0]
             atom["data"]["version"] = version
@@ -254,8 +241,26 @@ class Mp4Module(module.RuminaterModule):
             atom["data"]["atoms"] = []
             while self.blob.unit > 0:
                 atom["data"]["atoms"].append(self.read_atom())
-        else:
-            self.blob.skipunit()
+        elif typ == "avcC":
+            atom["data"]["configurationVersion"] = self.blob.read(1)[0]
+            atom["data"]["AVCProfileIndication"] = self.blob.read(1)[0]
+            atom["data"]["profile_compatibility"] = self.blob.read(1)[0]
+            atom["data"]["AVCLevelIndication"] = self.blob.read(1)[0]
+            atom["data"]["lengthSizeMinusOne"] = self.blob.read(1)[0]
+
+            atom["data"]["numOfSequenceParameterSets"] = self.blob.read(1)[0]
+            atom["data"]["sequenceParameterSets"] = []
+            for i in range(0, atom["data"]["numOfSequenceParameterSets"] & 0b00011111):
+                l = int.from_bytes(self.blob.read(2), "big")
+                atom["data"]["sequenceParameterSets"].append(self.blob.read(l).hex())
+
+            atom["data"]["numOfPictureParameterSets"] = self.blob.read(1)[0]
+            atom["data"]["pictureParameterSets"] = []
+            for i in range(0, atom["data"]["numOfPictureParameterSets"]):
+                l = int.from_bytes(self.blob.read(2), "big")
+                atom["data"]["pictureParameterSets"].append(self.blob.read(l).hex())
+
+        self.blob.skipunit()
 
         return atom
 
