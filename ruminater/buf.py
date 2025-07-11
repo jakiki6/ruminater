@@ -12,6 +12,8 @@ class Buf(object):
         self._size = self.tell()
         self.seek(pos)
 
+        self.unit = 0
+
     def available(self):
         return self._size - self.tell()
 
@@ -29,6 +31,24 @@ class Buf(object):
 
     def skip(self, l):
         self.seek(l, 1)
+
+    def set_unit(self, l):
+        self.unit = l
+
+    def skipunit(self):
+        self.skip(self.unit)
+        self.unit = 0
+
+    def readunit(self):
+        return self.read(self.unit)
+
+    def read(self, count=None):
+        if count == None:
+            self.unit = 0
+            return self._file.read()
+        else:
+            self.unit = max(self.unit - count, 0)
+            return self._file.read(count)
 
     def __getattr__(self, name):
         # Delegate everything else to the underlying file

@@ -51,46 +51,39 @@ class Mp4Module(module.RuminaterModule):
         }
 
         length -= 8
+        self.blob.set_unit(length)
 
-        if typ == "ftyp":
+        if typ in ("moov", "trak", "mdia", "minf", "dinf", "stbl"):
+            atom["data"]["atoms"] = []
+            while self.blob.unit > 0:
+                atom["data"]["atoms"].append(self.read_atom())
+        elif typ == "ftyp":
             atom["data"]["major_brand"] = self.blob.read(4).decode()
             atom["data"]["minor_version"] = int.from_bytes(self.blob.read(4), "big")
             atom["data"]["compatible_brands"] = []
 
-            length -= 8
-            while length > 0:
+            while self.blob.unit > 0:
                 atom["data"]["compatible_brands"].append(self.blob.read(4).decode())
-                length -= 4
-        elif typ in ("moov", "trak", "mdia"):
-            atom["data"]["atoms"] = []
-            while length > 0:
-                data = self.read_atom()
-                atom["data"]["atoms"].append(data)
-                length -= data["length"]
         elif typ == "uuid":
             atom["data"]["uuid"] = str(uuid.UUID(bytes=self.blob.read(16)))
-            length -= 16
 
-            if length > 0:
+            if self.blob.unit > 0:
                 atom["data"]["user-data"] = self.blob.read(length).decode("utf-8")
         elif typ == "mvhd":
             version = self.blob.read(1)[0]
             atom["data"]["version"] = version
             atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
-            length -= 4
 
             if version == 0:
                 creation_time = int.from_bytes(self.blob.read(4), "big")
                 modification_time = int.from_bytes(self.blob.read(4), "big")
                 timescale = int.from_bytes(self.blob.read(4), "big")
                 duration = int.from_bytes(self.blob.read(4), "big")
-                length -= 16
             elif version == 1:
                 creation_time = int.from_bytes(self.blob.read(8), "big")
                 modification_time = int.from_bytes(self.blob.read(8), "big")
                 timescale = int.from_bytes(self.blob.read(4), "big")
                 duration = int.from_bytes(self.blob.read(8), "big")
-                length -= 28
 
             if version in (0, 1):
                 atom["data"]["creation_time"] = mp4_time_to_iso(creation_time)
@@ -105,9 +98,7 @@ class Mp4Module(module.RuminaterModule):
                 atom["data"]["pre_defined"] = self.blob.read(24).hex()
                 atom["data"]["next_track_ID"] = int.from_bytes(self.blob.read(4), "big")
 
-                length -= 80
-
-            self.blob.skip(length)
+            self.blob.skipunit()
         elif typ == "tkhd":
             version = self.blob.read(1)[0]
             atom["data"]["version"] = version
@@ -118,7 +109,6 @@ class Mp4Module(module.RuminaterModule):
                 "movie": bool(flags & 2),
                 "preview": bool(flags & 4)
             }
-            length -= 4
 
             if version == 0:
                 creation_time = int.from_bytes(self.blob.read(4), "big")
@@ -127,15 +117,12 @@ class Mp4Module(module.RuminaterModule):
                 reserved1 = self.blob.read(4)
                 duration = int.from_bytes(self.blob.read(4), "big")
 
-                length -= 20
             if version == 1:
                 creation_time = int.from_bytes(self.blob.read(8), "big")
                 modification_time = int.from_bytes(self.blob.read(8), "big")
                 track_ID = int.from_bytes(self.blob.read(4), "big")
                 reserved1 = self.blob.read(4)
                 duration = int.from_bytes(self.blob.read(8), "big")
-
-                length -= 32
 
             if version in (0, 1):
                 atom["data"]["creation_time"] = mp4_time_to_iso(creation_time)
@@ -153,29 +140,26 @@ class Mp4Module(module.RuminaterModule):
                 atom["data"]["width"] = int.from_bytes(self.blob.read(4), "big") / 65536
                 atom["data"]["height"] = int.from_bytes(self.blob.read(4), "big") / 65536
 
-                length -= 60
 
-            self.blob.skip(length)
+            self.blob.skipunit()
         elif typ == "edts":
             atom["data"] = self.read_atom()
+            self.blob.skipunit()
         elif typ == "elst":
             version = self.blob.read(1)[0]
             atom["data"]["version"] = version
             atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
             atom["data"]["entries"] = []
-            count = int.from_bytes(self.blob.read(4), "big")
-            atom["data"]["count"] = count
-            length -= 8
+            entry_count = int.from_bytes(self.blob.read(4), "big")
+            atom["data"]["entry_count"] = entry_count
 
-            for i in range(0, count):
+            for i in range(0, entry_count):
                 if version == 0:
                     segment_duration = int.from_bytes(self.blob.read(4), "big")
                     media_time = int.from_bytes(self.blob.read(4), "big")
-                    length -= 8
                 elif version == 1:
                     segment_duration = int.from_bytes(self.blob.read(8), "big")
                     media_time = int.from_bytes(self.blob.read(8), "big")
-                    length -= 16
 
                 if version in (0, 1):
                     entry = {}
@@ -184,29 +168,24 @@ class Mp4Module(module.RuminaterModule):
                     entry["media_rate_integer"] = int.from_bytes(self.blob.read(2), "big")
                     entry["media_rate_fraction"] = int.from_bytes(self.blob.read(2), "big")
 
-                    length -= 4
-
                     atom["data"]["entries"].append(entry)
 
-            self.blob.skip(length)
+            self.blob.skipunit()
         elif typ == "mdhd":
             version = self.blob.read(1)[0]
             atom["data"]["version"] = version
             atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
-            length -= 4
 
             if version == 0:
                 creation_time = int.from_bytes(self.blob.read(4), "big")
                 modification_time = int.from_bytes(self.blob.read(4), "big")
                 timescale = int.from_bytes(self.blob.read(4), "big")
                 duration = int.from_bytes(self.blob.read(4), "big")
-                length -= 16
             elif version == 1:
                 creation_time = int.from_bytes(self.blob.read(8), "big")
                 modification_time = int.from_bytes(self.blob.read(8), "big")
                 timescale = int.from_bytes(self.blob.read(4), "big")
                 duration = int.from_bytes(self.blob.read(8), "big")
-                length -= 28
 
             if version in (0, 1):
                 atom["data"]["creation_time"] = mp4_time_to_iso(creation_time)
@@ -216,11 +195,67 @@ class Mp4Module(module.RuminaterModule):
 
                 atom["data"]["language"] = mp4_decode_mdhd_language(self.blob.read(2))
                 atom["data"]["pre_defined"] = self.blob.read(2).hex()
-                length -= 4
 
-            self.blob.skip(length)
+            self.blob.skipunit()
+        elif typ == "hdlr":
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
+            atom["data"]["pre_defined"] = self.blob.read(4).hex()
+            atom["data"]["handler_type"] = self.blob.read(4).decode()
+            atom["data"]["reserved"] = self.blob.read(12).hex()
+            atom["data"]["name"] = self.blob.readunit()[:-1].decode("utf-8")
+        elif typ == "vmhd":
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
+            atom["data"]["graphicsmode"] = int.from_bytes(self.blob.read(2), "big") 
+            atom["data"]["opcolor"] = [int.from_bytes(self.blob.read(2), "big") for _ in range(0, 3)]
+            self.blob.skipunit()
+        elif typ in ("dref", "stsd"):
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
+            entry_count = int.from_bytes(self.blob.read(4), "big")
+
+            atom["data"]["entries"] = []
+            for i in range(0, entry_count):
+                atom["data"]["entries"].append(self.read_atom())
+
+            self.blob.skipunit()
+        elif typ == "url ":
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            flags = int.from_bytes(self.blob.read(3), "big")
+            atom["data"]["flags"] = {
+                "raw": flags,
+                "local": bool(flags & 1)
+            }
+
+            atom["data"]["location"] = self.blob.readunit()[:-1].decode("utf-8")
+        elif typ == "avc1":
+            atom["data"]["reserved1"] = self.blob.read(6).hex()
+            atom["data"]["data_reference_index"] = int.from_bytes(self.blob.read(2), "big")
+            atom["data"]["pre_defined1"] = self.blob.read(2).hex()
+            atom["data"]["reserved2"] = self.blob.read(2).hex()
+            atom["data"]["pre_defined2"] = self.blob.read(12).hex()
+            atom["data"]["width"] = int.from_bytes(self.blob.read(2), "big")
+            atom["data"]["height"] = int.from_bytes(self.blob.read(2), "big")
+            atom["data"]["horizresolution"] = int.from_bytes(self.blob.read(4), "big") / 65536
+            atom["data"]["vertresolution"] = int.from_bytes(self.blob.read(4), "big") / 65536
+            atom["data"]["reserved3"] = self.blob.read(4).hex()
+            atom["data"]["frame_count"] = int.from_bytes(self.blob.read(2), "big")
+            l = self.blob.read(1)[0]
+            name = self.blob.read(31)
+            atom["data"]["compressorname"] = name[:l].decode("utf-8")
+            atom["data"]["depth"] = int.from_bytes(self.blob.read(2), "big")
+            atom["data"]["pre_defined3"] = self.blob.read(2).hex()
+
+            atom["data"]["atoms"] = []
+            while self.blob.unit > 0:
+                atom["data"]["atoms"].append(self.read_atom())
         else:
-            self.blob.skip(length)
+            self.blob.skipunit()
 
         return atom
 
