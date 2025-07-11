@@ -305,9 +305,6 @@ class Mp4Module(module.RuminaterModule):
 
             entry_count = int.from_bytes(self.blob.read(4), "big")
             atom["data"]["entry_count"] = entry_count
-            atom["data"]["entries"] = []
-            for i in range(0, entry_count):
-                atom["data"]["entries"].append(int.from_bytes(self.blob.read(4), "big"))
         elif typ == "ctts":
             version = self.blob.read(1)[0]
             atom["data"]["version"] = version
@@ -315,12 +312,6 @@ class Mp4Module(module.RuminaterModule):
 
             entry_count = int.from_bytes(self.blob.read(4), "big")
             atom["data"]["entry_count"] = entry_count
-            atom["data"]["entries"] = []
-            for i in range(0, entry_count):
-                atom["data"]["entries"].append({
-                    "sample_count": int.from_bytes(self.blob.read(4), "big"),
-                    "sample_offset": int.from_bytes(self.blob.read(4), "big")
-                })
         elif typ == "stsc":
             version = self.blob.read(1)[0]
             atom["data"]["version"] = version
@@ -328,24 +319,12 @@ class Mp4Module(module.RuminaterModule):
 
             entry_count = int.from_bytes(self.blob.read(4), "big")
             atom["data"]["entry_count"] = entry_count
-            atom["data"]["entries"] = []
-            for i in range(0, entry_count):
-                atom["data"]["entries"].append({
-                    "first_chunk": int.from_bytes(self.blob.read(4), "big"),
-                    "samples_per_chunk": int.from_bytes(self.blob.read(4), "big"),
-                    "sample_description_index": int.from_bytes(self.blob.read(4), "big")
-                })
         elif typ == "stsz":
             version = self.blob.read(1)[0]
             atom["data"]["version"] = version
             atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
             atom["data"]["sample_size"] = int.from_bytes(self.blob.read(4), "big")
             atom["data"]["sample_count"] = int.from_bytes(self.blob.read(4), "big")
-
-            if atom["data"]["sample_size"] == 0:
-                atom["data"]["sample_size"] = []
-                for i in range(0, atom["data"]["sample_count"]):
-                    atom["data"]["sample_size"].append(int.from_bytes(self.blob.read(4), "big"))
         elif typ == "stco":
             version = self.blob.read(1)[0]
             atom["data"]["version"] = version
@@ -353,9 +332,6 @@ class Mp4Module(module.RuminaterModule):
 
             entry_count = int.from_bytes(self.blob.read(4), "big")
             atom["data"]["entry_count"] = entry_count
-            atom["data"]["entries"] = []
-            for i in range(0, entry_count):
-                atom["data"]["entries"].append(int.from_bytes(self.blob.read(4), "big"))
         elif typ == "sgpd":
             version = self.blob.read(1)[0]
             atom["data"]["version"] = version
@@ -454,9 +430,6 @@ class Mp4Module(module.RuminaterModule):
 
             entry_count = int.from_bytes(self.blob.read(4), "big")
             atom["data"]["entry_count"] = entry_count
-            atom["data"]["entries"] = []
-            for i in range(0, entry_count):
-                atom["data"]["entries"].append(int.from_bytes(self.blob.read(8), "big"))
         elif typ == "sdtp":
             version = self.blob.read(1)[0]
             atom["data"]["version"] = version
