@@ -54,7 +54,7 @@ class Mp4Module(module.RuminaterModule):
         self.blob.pushunit()
         self.blob.set_unit(length)
 
-        if typ in ("moov", "trak", "mdia", "minf", "dinf", "stbl", "udta", "ilst", "mvex", "moof") or (typ[0] == "©" and self.blob.peek(8)[4:8] == b"data"):
+        if typ in ("moov", "trak", "mdia", "minf", "dinf", "stbl", "udta", "ilst", "mvex", "moof", "traf") or (typ[0] == "©" and self.blob.peek(8)[4:8] == b"data"):
             atom["data"]["atoms"] = []
             while self.blob.unit > 0:
                 atom["data"]["atoms"].append(self.read_atom())
@@ -478,6 +478,56 @@ class Mp4Module(module.RuminaterModule):
             atom["data"]["first_offset"] = int.from_bytes(self.blob.read(4 if version == 0 else 8), "big")
             atom["data"]["reserved"] = self.blob.read(2).hex()
             atom["data"]["reference_count"] = int.from_bytes(self.blob.read(2), "big")
+        elif typ == "mfhd":
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
+            atom["data"]["sequence_number"] = int.from_bytes(self.blob.read(4), "big")
+        elif typ == "tfhd":
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            flags = int.from_bytes(self.blob.read(3), "big")
+            atom["data"]["flags"] = {
+                "raw": flags,
+                "base_data_offset_present": bool(flags & 1),
+                "sample_description_index_present": bool(flags & 2),
+                "default_sample_duration_present": bool(flags & 8),
+                "default_sample_size_present": bool(flags & 16),
+                "default_sample_flags_present": bool(flags & 32),
+                "no_samples": bool(flags & 65536),
+                "base_is_moof": bool(flags & 131072)
+            }
+            atom["data"]["track_ID"] = int.from_bytes(self.blob.read(4), "big")
+
+            if atom["data"]["flags"]["base_data_offset_present"]:
+                atom["data"]["base_data_offset"] = int.from_bytes(self.blob.read(8), "big")
+            if atom["data"]["flags"]["sample_description_index_present"]:
+                atom["data"]["sample_description_index"] = int.from_bytes(self.blob.read(4), "big")
+            if atom["data"]["flags"]["default_sample_duration_present"]:
+                atom["data"]["default_sample_duration"] = int.from_bytes(self.blob.read(4), "big")
+            if atom["data"]["flags"]["default_sample_size_present"]:
+                atom["data"]["default_sample_size"] = int.from_bytes(self.blob.read(4), "big")
+            if atom["data"]["flags"]["default_sample_flags_present"]:
+                atom["data"]["default_sample_flags"] = int.from_bytes(self.blob.read(4), "big")
+        elif typ == "tfdt":
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
+            atom["data"]["baseMediaDecodeTime"] = int.from_bytes(self.blob.read(4 if version == 0 else 8), "big")
+        elif typ == "trun":
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            flags = int.from_bytes(self.blob.read(3), "big")
+            atom["data"]["flags"] = {
+                "raw": flags,
+                "data_offset_present": bool(flags & 1),
+                "first_sample_flags_present": bool(flags & 4),
+                "sample_duration_present": bool(flags & 256),
+                "sample_size_present": bool(flags & 512),
+                "sample_flags_present": bool(flags & 1024),
+                "sample_composition_time_offsets_present": bool(flags & 2048),
+            }
+            atom["data"]["sample_count"] = int.from_bytes(self.blob.read(4), "big")
         else:
             atom["unknown"] = True
 
