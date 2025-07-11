@@ -285,6 +285,121 @@ class Mp4Module(module.RuminaterModule):
             atom["data"]["buffer_size"] = int.from_bytes(self.blob.read(4), "big")
             atom["data"]["max_bitrate"] = int.from_bytes(self.blob.read(4), "big")
             atom["data"]["avg_bitrate"] = int.from_bytes(self.blob.read(4), "big")
+        elif typ == "stts":
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
+
+            entry_count = int.from_bytes(self.blob.read(4), "big")
+            atom["data"]["entry_count"] = entry_count
+            atom["data"]["entries"] = []
+            for i in range(0, entry_count):
+                atom["data"]["entries"].append({
+                    "sample_count": int.from_bytes(self.blob.read(4), "big"),
+                    "sample_delta": int.from_bytes(self.blob.read(4), "big")
+                })
+        elif typ == "stss":
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
+
+            entry_count = int.from_bytes(self.blob.read(4), "big")
+            atom["data"]["entry_count"] = entry_count
+            atom["data"]["entries"] = []
+            for i in range(0, entry_count):
+                atom["data"]["entries"].append(int.from_bytes(self.blob.read(4), "big"))
+        elif typ == "ctts":
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
+
+            entry_count = int.from_bytes(self.blob.read(4), "big")
+            atom["data"]["entry_count"] = entry_count
+            atom["data"]["entries"] = []
+            for i in range(0, entry_count):
+                atom["data"]["entries"].append({
+                    "sample_count": int.from_bytes(self.blob.read(4), "big"),
+                    "sample_offset": int.from_bytes(self.blob.read(4), "big")
+                })
+        elif typ == "stsc":
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
+
+            entry_count = int.from_bytes(self.blob.read(4), "big")
+            atom["data"]["entry_count"] = entry_count
+            atom["data"]["entries"] = []
+            for i in range(0, entry_count):
+                atom["data"]["entries"].append({
+                    "first_chunk": int.from_bytes(self.blob.read(4), "big"),
+                    "samples_per_chunk": int.from_bytes(self.blob.read(4), "big"),
+                    "sample_description_index": int.from_bytes(self.blob.read(4), "big")
+                })
+        elif typ == "stsz":
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
+            atom["data"]["sample_size"] = int.from_bytes(self.blob.read(4), "big")
+            atom["data"]["sample_count"] = int.from_bytes(self.blob.read(4), "big")
+
+            if atom["data"]["sample_size"] == 0:
+                atom["data"]["sample_size"] = []
+                for i in range(0, atom["data"]["sample_count"]):
+                    atom["data"]["sample_size"].append(int.from_bytes(self.blob.read(4), "big"))
+        elif typ == "stco":
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
+
+            entry_count = int.from_bytes(self.blob.read(4), "big")
+            atom["data"]["entry_count"] = entry_count
+            atom["data"]["entries"] = []
+            for i in range(0, entry_count):
+                atom["data"]["entries"].append(int.from_bytes(self.blob.read(4), "big"))
+        elif typ == "sgpd":
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            flags = int.from_bytes(self.blob.read(3), "big")
+            atom["data"]["flags"] = {
+                "raw": flags,
+                "variable_length": bool(flags & 1)
+            }
+
+            atom["data"]["grouping_type"] = self.blob.read(4).decode("utf-8")
+
+            default_length = 0
+            if version == 1 and flags & 1 == 0:
+                default_length = int.from_bytes(self.blob.read(4), "big")
+
+            entry_count = int.from_bytes(self.blob.read(4), "big")
+            atom["data"]["entry_count"] = entry_count
+
+            atom["data"]["entries"] = []
+            for i in range(0, entry_count):
+                length = default_length
+                if length == 0:
+                    length = int.from_bytes(self.blob.read(4), "big")
+
+                atom["data"]["entries"].append(self.blob.read(length).hex())
+        elif typ == "sbgp":
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
+
+            atom["data"]["grouping_type"] = self.blob.read(4).decode("utf-8")
+
+            entry_count = int.from_bytes(self.blob.read(4), "big")
+            atom["data"]["entry_count"] = entry_count
+
+            atom["data"]["entries"] = []
+            for i in range(0, entry_count):
+                atom["data"]["entries"].append({
+                    "sample_count": int.from_bytes(self.blob.read(4), "big"),
+                    "group_description_index": int.from_bytes(self.blob.read(4), "big")
+                })
+           
+        else:
+            atom["unknown"] = True
 
         self.blob.skipunit()
 
