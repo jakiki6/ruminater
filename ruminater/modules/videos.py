@@ -53,7 +53,7 @@ class Mp4Module(module.RuminaterModule):
             while length > 0:
                 atom["data"]["compatible_brands"].append(self.blob.read(4).decode())
                 length -= 4
-        elif typ == "moov":
+        elif typ in ("moov", "trak"):
             atom["data"]["atoms"] = []
             while length > 0:
                 data = self.read_atom()
@@ -96,6 +96,54 @@ class Mp4Module(module.RuminaterModule):
                 atom["data"]["next_track_ID"] = int.from_bytes(self.blob.read(4), "big")
 
                 length -= 80
+
+            self.blob.skip(length)
+        elif typ == "tkhd":
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            flags = int.from_bytes(self.blob.read(3), "big")
+            atom["data"]["flags"] = {
+                "raw": flags,
+                "enabled": bool(flags & 1),
+                "movie": bool(flags & 2),
+                "preview": bool(flags & 4)
+            }
+            length -= 4
+
+            if version == 0:
+                creation_time = int.from_bytes(self.blob.read(4), "big")
+                modification_time = int.from_bytes(self.blob.read(4), "big")
+                track_ID = int.from_bytes(self.blob.read(4), "big")
+                reserved1 = self.blob.read(4)
+                duration = int.from_bytes(self.blob.read(4), "big")
+
+                length -= 20
+            if version == 1:
+                creation_time = int.from_bytes(self.blob.read(8), "big")
+                modification_time = int.from_bytes(self.blob.read(8), "big")
+                track_ID = int.from_bytes(self.blob.read(4), "big")
+                reserved1 = self.blob.read(4)
+                duration = int.from_bytes(self.blob.read(8), "big")
+
+                length -= 32
+
+            if version in (0, 1):
+                atom["data"]["creation_time"] = mp4_time_to_iso(creation_time)
+                atom["data"]["modification_time"] = mp4_time_to_iso(modification_time)
+                atom["data"]["track_ID"] = track_ID
+                atom["data"]["reserved1"] = reserved1.hex()
+                atom["data"]["duration"] = duration
+
+                atom["data"]["reserved2"] = self.blob.read(8).hex()
+                atom["data"]["layer"] = int.from_bytes(self.blob.read(2), "big")
+                atom["data"]["alternate_group"] = int.from_bytes(self.blob.read(2), "big")
+                atom["data"]["volume"] = int.from_bytes(self.blob.read(2), "big") / 256
+                atom["data"]["reserved3"] = self.blob.read(2).hex()
+                atom["data"]["matrix"] = self.blob.read(36).hex()
+                atom["data"]["width"] = int.from_bytes(self.blob.read(4), "big") / 65536
+                atom["data"]["height"] = int.from_bytes(self.blob.read(4), "big") / 65536
+
+                length -= 60
 
             self.blob.skip(length)
         else:
