@@ -38,7 +38,7 @@ class Mp4Module(module.RuminaterModule):
             self.blob.seek(0, 2)
             length = self.blob.tell()
             self.blob.seek(pos)
-        typ = self.blob.read(4).decode("utf-8")
+        typ = self.blob.read(4).decode("latin-1")
 
         if length == 1:
             length = int.from_bytes(self.blob.read(8), "big")
@@ -53,7 +53,7 @@ class Mp4Module(module.RuminaterModule):
         length -= 8
         self.blob.set_unit(length)
 
-        if typ in ("moov", "trak", "mdia", "minf", "dinf", "stbl"):
+        if typ in ("moov", "trak", "mdia", "minf", "dinf", "stbl", "udta", "ilst", "©too"):
             atom["data"]["atoms"] = []
             while self.blob.unit > 0:
                 atom["data"]["atoms"].append(self.read_atom())
@@ -397,7 +397,56 @@ class Mp4Module(module.RuminaterModule):
                     "sample_count": int.from_bytes(self.blob.read(4), "big"),
                     "group_description_index": int.from_bytes(self.blob.read(4), "big")
                 })
-           
+        elif typ == "smhd":
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
+            atom["data"]["balance"] = int.from_bytes(self.blob.read(2), "big") / 256
+            atom["data"]["reserved"] = int.from_bytes(self.blob.read(2), "big")
+        elif typ == "mp4a":
+            atom["data"]["reserved1"] = self.blob.read(6).hex()
+            atom["data"]["data_reference_index"] = int.from_bytes(self.blob.read(2), "big")
+            atom["data"]["reserved2"] = self.blob.read(8).hex()
+            atom["data"]["channel_count"] = int.from_bytes(self.blob.read(2), "big")
+            atom["data"]["samplesize"] = int.from_bytes(self.blob.read(2), "big")
+            atom["data"]["pre_defined"] = self.blob.read(2).hex()
+            atom["data"]["reserved3"] = self.blob.read(2).hex()
+            atom["data"]["samplerate"] = int.from_bytes(self.blob.read(4), "big") / 65536
+
+            atom["data"]["atoms"] = []
+            while self.blob.unit > 0:
+                atom["data"]["atoms"].append(self.read_atom())
+        elif typ == "esds":
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
+
+            atom["data"]["ES_descriptor"] = self.blob.readunit().hex()
+        elif typ == "meta":
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
+
+            atom["data"]["atoms"] = []
+            while self.blob.unit > 0:
+                atom["data"]["atoms"].append(self.read_atom())
+        elif typ == "data":
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
+            atom["data"]["type"] = int.from_bytes(self.blob.read(4), "big")
+
+            match atom["data"]["type"]:
+                case 0:
+                    atom["data"]["payload"] = self.blob.readunit().decode("utf-8")
+                case 1:
+                    atom["data"]["payload"] = self.blob.readunit().decode("utf-16")
+                case _:
+                    atom["data"]["payload"] = self.blob.readunit().hex()
+        elif typ == "free":
+            atom["data"]["non-zero"] = sum(self.blob.readunit()) > 0
+        elif typ == "mdat":
+            pass
         else:
             atom["unknown"] = True
 
