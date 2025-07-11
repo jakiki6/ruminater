@@ -8,21 +8,8 @@ class EntryModule(module.RuminaterModule):
     def chew(self):
         meta = {}
 
-        data_len = self.blob.size()
-
         data_type = magic.from_buffer(self.blob.peek(65536))
-        self.blob.seek(0)
-
-        h = hashlib.sha256()
-        i = data_len
-        while i > 0:
-            h.update(self.blob.read(1<<24))
-            i -= 1<<24
-        self.blob.seek(0)
-        data_hash = h.hexdigest()
-
-        meta["length"] = data_len
-        meta["hash-sha256"] = data_hash
+        meta["length"] = self.blob.size()
 
         matched = False
         for k, v in mappings.items():
