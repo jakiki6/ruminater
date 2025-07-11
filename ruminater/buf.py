@@ -34,9 +34,10 @@ class Buf(object):
 
     def set_unit(self, l):
         self.unit = l
+        self._target = self.tell() + l
 
     def skipunit(self):
-        self.skip(self.unit)
+        self.seek(self._target)
         self.unit = 0
 
     def readunit(self):
