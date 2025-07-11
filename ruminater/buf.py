@@ -13,6 +13,8 @@ class Buf(object):
         self.seek(pos)
 
         self.unit = 0
+        self._target = 0
+        self._stack = []
 
     def available(self):
         return self._size - self.tell()
@@ -50,6 +52,14 @@ class Buf(object):
         else:
             self.unit = max(self.unit - count, 0)
             return self._file.read(count)
+
+    def pushunit(self):
+        self._stack.append(self._target)
+
+    def popunit(self):
+        t = self._stack.pop()
+        self.unit = max(t - self._target, 0)
+        self._target = t
 
     def __getattr__(self, name):
         # Delegate everything else to the underlying file
