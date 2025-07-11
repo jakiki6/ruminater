@@ -53,7 +53,7 @@ class Mp4Module(module.RuminaterModule):
         length -= 8
         self.blob.set_unit(length)
 
-        if typ in ("moov", "trak", "mdia", "minf", "dinf", "stbl", "udta", "ilst", "©too"):
+        if typ in ("moov", "trak", "mdia", "minf", "dinf", "stbl", "udta", "ilst") or (typ[0] == "©" and self.blob.peek(8)[4:8] == b"data"):
             atom["data"]["atoms"] = []
             while self.blob.unit > 0:
                 atom["data"]["atoms"].append(self.read_atom())
@@ -447,6 +447,21 @@ class Mp4Module(module.RuminaterModule):
             atom["data"]["non-zero"] = sum(self.blob.readunit()) > 0
         elif typ == "mdat":
             pass
+        elif typ == "co64":
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
+
+            entry_count = int.from_bytes(self.blob.read(4), "big")
+            atom["data"]["entry_count"] = entry_count
+            atom["data"]["entries"] = []
+            for i in range(0, entry_count):
+                atom["data"]["entries"].append(int.from_bytes(self.blob.read(8), "big"))
+        elif typ == "sdtp":
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
+            atom["data"]["sample_dep_type_count"] = len(self.blob.readunit())
         else:
             atom["unknown"] = True
 
