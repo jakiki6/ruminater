@@ -58,12 +58,12 @@ class Mp4Module(module.RuminaterModule):
             while self.blob.unit > 0:
                 atom["data"]["atoms"].append(self.read_atom())
         elif typ == "ftyp":
-            atom["data"]["major_brand"] = self.blob.read(4).decode()
+            atom["data"]["major_brand"] = self.blob.read(4).decode("utf-8")
             atom["data"]["minor_version"] = int.from_bytes(self.blob.read(4), "big")
             atom["data"]["compatible_brands"] = []
 
             while self.blob.unit > 0:
-                atom["data"]["compatible_brands"].append(self.blob.read(4).decode())
+                atom["data"]["compatible_brands"].append(self.blob.read(4).decode("utf-8"))
         elif typ == "uuid":
             atom["data"]["uuid"] = str(uuid.UUID(bytes=self.blob.read(16)))
 
@@ -192,7 +192,7 @@ class Mp4Module(module.RuminaterModule):
             atom["data"]["version"] = version
             atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
             atom["data"]["pre_defined"] = self.blob.read(4).hex()
-            atom["data"]["handler_type"] = self.blob.read(4).decode()
+            atom["data"]["handler_type"] = self.blob.read(4).decode("utf-8")
             atom["data"]["reserved"] = self.blob.read(12).hex()
             atom["data"]["name"] = self.blob.readunit()[:-1].decode("utf-8")
         elif typ == "vmhd":
@@ -259,6 +259,32 @@ class Mp4Module(module.RuminaterModule):
             for i in range(0, atom["data"]["numOfPictureParameterSets"]):
                 l = int.from_bytes(self.blob.read(2), "big")
                 atom["data"]["pictureParameterSets"].append(self.blob.read(l).hex())
+        elif typ == "colr":
+            atom["data"]["color_type"] = self.blob.read(4).decode("utf-8")
+
+            match atom["data"]["color_type"]:
+                case "nclc":
+                    atom["data"]["color_primaries"] = int.from_bytes(self.blob.read(2), "big")
+                    atom["data"]["transfer_characteristics"] = int.from_bytes(self.blob.read(2), "big")
+                    atom["data"]["matrix_coefficients"] = int.from_bytes(self.blob.read(2), "big")
+                case "rICC" | "prof":
+                    atom["data"]["icc_profile_data"] = self.blob.readunit().hex()
+                case "nclx":
+                    atom["data"]["color_primaries"] = int.from_bytes(self.blob.read(2), "big")
+                    atom["data"]["transfer_characteristics"] = int.from_bytes(self.blob.read(2), "big")
+                    atom["data"]["matrix_coefficients"] = int.from_bytes(self.blob.read(2), "big")
+                    full_range_flag = self.blob.read(1)[0]
+                    atom["data"]["full_range_flag"] = {
+                        "raw": full_range_flag,
+                        "full": bool(full_range_flag & 0x80)
+                    }
+        elif typ == "pasp":
+            atom["data"]["hSpacing"] = int.from_bytes(self.blob.read(4), "big")
+            atom["data"]["vSpacing"] = int.from_bytes(self.blob.read(4), "big")
+        elif typ == "btrt":
+            atom["data"]["buffer_size"] = int.from_bytes(self.blob.read(4), "big")
+            atom["data"]["max_bitrate"] = int.from_bytes(self.blob.read(4), "big")
+            atom["data"]["avg_bitrate"] = int.from_bytes(self.blob.read(4), "big")
 
         self.blob.skipunit()
 
