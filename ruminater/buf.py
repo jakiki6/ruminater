@@ -16,7 +16,7 @@ class Buf(object):
         return self._size - self.tell()
 
     def isend(self):
-        return self.available() == 0
+        return self.available() <= 0
 
     def size(self):
         return self._size
