@@ -361,7 +361,7 @@ class Mp4Module(module.RuminaterModule):
                 atom["data"]["atoms"].append(self.read_atom())
         elif typ == "esds":
             self.mp4_version(atom)
-            atom["data"]["ES_descriptor"] = self.buf.readunit().hex()
+            atom["data"]["or"] = self.buf.readunit().hex()
         elif typ == "meta":
             self.mp4_version(atom)
             atom["data"]["atoms"] = []
@@ -387,8 +387,6 @@ class Mp4Module(module.RuminaterModule):
         elif typ == "sdtp":
             self.mp4_version(atom)
             atom["data"]["sample_dep_type_count"] = len(self.buf.readunit())
-        elif typ[0] == "©":
-            atom["data"]["payload"] = self.buf.readunit().hex()
         elif typ == "vp09":
             atom["data"]["reserved1"] = self.buf.read(6).hex()
             atom["data"]["data_reference_index"] = int.from_bytes(self.buf.read(2), "big")
@@ -559,6 +557,8 @@ class Mp4Module(module.RuminaterModule):
             self.mp4_version(atom)
             atom["data"]["reserved1"] = self.buf.read(2).hex()
             atom["data"]["title"] = self.buf.readunit()[:-1].decode("utf-8")
+        elif typ[0] == "©" or typ == "iods":
+            atom["data"]["payload"] = self.buf.readunit().hex()
         elif typ[0] == "\x00" or typ == "mdat":
             pass
         else:
