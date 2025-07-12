@@ -35,7 +35,7 @@ class Buf(object):
         self.unit = max(self.unit - l, 0)
         self.seek(l, 1)
 
-    def set_unit(self, l):
+    def setunit(self, l):
         self.unit = l
         self._target = self.tell() + l
 
@@ -52,7 +52,7 @@ class Buf(object):
             return self._file.read()
         else:
             self.unit -= count
-            assert self.unit >= 0, "unit overread"
+            assert self.unit >= 0, f"unit overread by {-self.unit} byte{'s' if self.unit != -1 else ''}"
 
             return self._file.read(count)
 
@@ -63,6 +63,12 @@ class Buf(object):
         t = self._stack.pop()
         self.unit = max(t - self._target, 0)
         self._target = t
+
+    def backup(self):
+        return (self.unit, self._target, self._stack)
+
+    def restore(self, bak):
+        self.unit, self._target, self._stack = bak
 
     def readline(self):
         line = self._file.readline()

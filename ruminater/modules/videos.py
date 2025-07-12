@@ -27,6 +27,8 @@ class Mp4Module(module.RuminaterModule):
         while not self.buf.isend():
             file["atoms"].append(self.read_atom())
 
+        self.parse_mdat(file["atoms"])
+
         return file
 
     def read_version(self, atom):
@@ -37,12 +39,16 @@ class Mp4Module(module.RuminaterModule):
 
     def read_more(self, atom):
         atom["data"]["atoms"] = []
+
+        bak = self.buf.backup()
+
         while self.buf.unit > 0:
             try:
                 atom["data"]["atoms"].append(self.read_atom())
             except:
                 break
 
+        self.buf.restore(bak)
         self.buf.skipunit()
 
     def read_atom(self):
@@ -68,7 +74,7 @@ class Mp4Module(module.RuminaterModule):
 
         length -= 8
         self.buf.pushunit()
-        self.buf.set_unit(length)
+        self.buf.setunit(length)
 
         if typ in ("moov", "trak", "mdia", "minf", "dinf", "stbl", "udta", "ilst", "mvex", "moof", "traf", "gsst", "gstd") or (typ[0] == "©" and self.buf.peek(8)[4:8] == b"data"):
             self.read_more(atom)
@@ -208,9 +214,9 @@ class Mp4Module(module.RuminaterModule):
             self.read_version(atom)
             entry_count = int.from_bytes(self.buf.read(4), "big")
 
-            atom["data"]["entries"] = []
+            atom["data"]["atoms"] = []
             for i in range(0, entry_count):
-                atom["data"]["entries"].append(self.read_atom())
+                atom["data"]["atoms"].append(self.read_atom())
         elif typ == "url ":
             version = self.buf.read(1)[0]
             atom["data"]["version"] = version
@@ -561,7 +567,7 @@ class Mp4Module(module.RuminaterModule):
             atom["data"]["compositionEndTime"] = int.from_bytes(self.buf.read(4), "big")
         elif typ[0] == "©" or typ == "iods":
             atom["data"]["payload"] = self.buf.readunit().hex()
-        elif typ[0] == "\x00" or typ == "mdat":
+        elif typ[0] == "\x00" == "mdat":
             pass
         else:
             atom["unknown"] = True
@@ -570,5 +576,112 @@ class Mp4Module(module.RuminaterModule):
         self.buf.popunit()
 
         return atom
+
+    def find_stream_type(self, atoms):
+        t = None
+
+        for atom in atoms:
+            if t != None:
+                break
+
+            match atom["type"]:
+                case "hvc1":
+                    t = "hvec"
+                case "avc1":
+                    t = "avc1"
+                case "vp09":
+                    t = "vp9"
+
+            if t == None and "atoms" in atom["data"]:
+                t = self.find_stream_type(atom["data"]["atoms"])
+
+        return t
+
+    def find_avcC_length(self, atoms):
+        length = None
+
+        for atom in atoms:
+            if length != None:
+                break
+
+            if atom["type"] == "avcC":
+                length = atom["data"]["lengthSizeMinusOne"] & 0x03 + 1
+
+            if length == None and "atoms" in atom["data"]:
+                length = self.find_avcC_length(atom["data"]["atoms"])
+
+        return length
+
+    def parse_sei(self, seis):
+        while self.buf.unit > 0:
+            t = 0
+            while True:
+                b = self.buf.read(1)[0]
+                t += b
+                if b != 0xff:
+                    break
+
+            l = 0
+            while True:
+                b = self.buf.read(1)[0]
+                l += b
+                if b != 0xff:
+                    break
+
+            data = self.buf.read(l)
+            seis.append({
+                "type": t,
+                "length": l,
+                "data": data.decode("latin-1")
+            })
+
+    def parse_mdat_avc1(self, atoms):
+        mdat = None
+        for atom in atoms:
+            if atom["type"] == "mdat":
+                mdat = atom
+
+        if mdat == None:
+            return
+
+        mdat["data"]["type"] = "avc1"
+
+        nal_length = self.find_avcC_length(atoms)
+        if nal_length == None:
+            return
+
+        self.buf.seek(mdat["offset"])
+        self.buf.setunit(atom["length"])
+
+        self.buf.skip(8)
+
+        mdat["data"]["sei"] = []
+        while self.buf.unit > 0:
+            length = int.from_bytes(self.buf.read(nal_length), "big")
+            if length == 0:
+                break
+
+            self.buf.pushunit()
+            self.buf.setunit(length - 1)
+
+            t = self.buf.read(1)[0] & 0b00011111
+
+            if t == 6:
+                self.parse_sei(mdat["data"]["sei"])
+
+            self.buf.skipunit()
+            self.buf.popunit()
+
+        if len(mdat["data"]["sei"]) == 0:
+            del mdat["data"]["sei"]
+
+    def parse_mdat(self, atoms):
+        stream_type = self.find_stream_type(atoms)
+        if stream_type == None:
+            return
+
+        match stream_type:
+            case "avc1":
+                self.parse_mdat_avc1(atoms)
 
 mappings["^ISO Media.*$"] = Mp4Module
