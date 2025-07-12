@@ -62,6 +62,15 @@ class Buf(object):
         self.unit = max(t - self._target, 0)
         self._target = t
 
+    def readline(self):
+        line = self._file.readline()
+        self.unit = max(self.unit - len(line), 0)
+
+        if len(line) >= 2 and line[-2] == 0x0d:
+            line = line[:-2] + b"\n"
+
+        return line
+
     def __getattr__(self, name):
         # Delegate everything else to the underlying file
         return getattr(self._file, name)
