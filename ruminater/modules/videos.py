@@ -29,11 +29,21 @@ class Mp4Module(module.RuminaterModule):
 
         return file
 
-    def mp4_version(self, atom):
+    def read_version(self, atom):
         version = self.buf.read(1)[0]
         atom["data"]["version"] = version
         atom["data"]["flags"] = int.from_bytes(self.buf.read(3), "big")
         return version
+
+    def read_more(self, atom):
+        atom["data"]["atoms"] = []
+        while self.buf.unit > 0:
+            try:
+                atom["data"]["atoms"].append(self.read_atom())
+            except:
+                break
+
+        self.buf.skipunit()
 
     def read_atom(self):
         offset = self.buf.tell()
@@ -61,9 +71,7 @@ class Mp4Module(module.RuminaterModule):
         self.buf.set_unit(length)
 
         if typ in ("moov", "trak", "mdia", "minf", "dinf", "stbl", "udta", "ilst", "mvex", "moof", "traf", "gsst", "gstd") or (typ[0] == "©" and self.buf.peek(8)[4:8] == b"data"):
-            atom["data"]["atoms"] = []
-            while self.buf.unit > 0:
-                atom["data"]["atoms"].append(self.read_atom())
+            self.read_more(atom)
         elif typ == "ftyp":
             atom["data"]["major_brand"] = self.buf.read(4).decode("utf-8")
             atom["data"]["minor_version"] = int.from_bytes(self.buf.read(4), "big")
@@ -75,7 +83,7 @@ class Mp4Module(module.RuminaterModule):
             atom["data"]["uuid"] = str(uuid.UUID(bytes=self.buf.read(16)))
             atom["data"]["user-data"] = self.buf.readunit().decode("utf-8")
         elif typ == "mvhd":
-            version = self.mp4_version(atom)
+            version = self.read_version(atom)
 
             if version == 0:
                 creation_time = int.from_bytes(self.buf.read(4), "big")
@@ -143,7 +151,7 @@ class Mp4Module(module.RuminaterModule):
         elif typ == "edts":
             atom["data"] = self.read_atom()
         elif typ == "elst":
-            version = self.mp4_version(atom)
+            version = self.read_version(atom)
             atom["data"]["entries"] = []
             entry_count = int.from_bytes(self.buf.read(4), "big")
             atom["data"]["entry_count"] = entry_count
@@ -165,7 +173,7 @@ class Mp4Module(module.RuminaterModule):
 
                     atom["data"]["entries"].append(entry)
         elif typ == "mdhd":
-            version = self.mp4_version(atom)
+            version = self.read_version(atom)
 
             if version == 0:
                 creation_time = int.from_bytes(self.buf.read(4), "big")
@@ -187,17 +195,17 @@ class Mp4Module(module.RuminaterModule):
                 atom["data"]["language"] = mp4_decode_mdhd_language(self.buf.read(2))
                 atom["data"]["pre_defined"] = self.buf.read(2).hex()
         elif typ == "hdlr":
-            self.mp4_version(atom)
+            self.read_version(atom)
             atom["data"]["pre_defined"] = self.buf.read(4).hex()
             atom["data"]["handler_type"] = self.buf.read(4).decode("utf-8")
             atom["data"]["reserved"] = self.buf.read(12).hex()
             atom["data"]["name"] = self.buf.readunit()[:-1].decode("utf-8")
         elif typ == "vmhd":
-            self.mp4_version(atom)
+            self.read_version(atom)
             atom["data"]["graphicsmode"] = int.from_bytes(self.buf.read(2), "big") 
             atom["data"]["opcolor"] = [int.from_bytes(self.buf.read(2), "big") for _ in range(0, 3)]
         elif typ in ("dref", "stsd"):
-            self.mp4_version(atom)
+            self.read_version(atom)
             entry_count = int.from_bytes(self.buf.read(4), "big")
 
             atom["data"]["entries"] = []
@@ -231,9 +239,7 @@ class Mp4Module(module.RuminaterModule):
             atom["data"]["depth"] = int.from_bytes(self.buf.read(2), "big")
             atom["data"]["pre_defined3"] = self.buf.read(2).hex()
 
-            atom["data"]["atoms"] = []
-            while self.buf.unit > 0:
-                atom["data"]["atoms"].append(self.read_atom())
+            self.read_more(atom)
         elif typ == "avcC":
             atom["data"]["configurationVersion"] = self.buf.read(1)[0]
             atom["data"]["AVCProfileIndication"] = self.buf.read(1)[0]
@@ -279,27 +285,27 @@ class Mp4Module(module.RuminaterModule):
             atom["data"]["max_bitrate"] = int.from_bytes(self.buf.read(4), "big")
             atom["data"]["avg_bitrate"] = int.from_bytes(self.buf.read(4), "big")
         elif typ == "stts":
-            self.mp4_version(atom)
+            self.read_version(atom)
             entry_count = int.from_bytes(self.buf.read(4), "big")
             atom["data"]["entry_count"] = entry_count
         elif typ == "stss":
-            self.mp4_version(atom)
+            self.read_version(atom)
             entry_count = int.from_bytes(self.buf.read(4), "big")
             atom["data"]["entry_count"] = entry_count
         elif typ == "ctts":
-            self.mp4_version(atom)
+            self.read_version(atom)
             entry_count = int.from_bytes(self.buf.read(4), "big")
             atom["data"]["entry_count"] = entry_count
         elif typ == "stsc":
-            self.mp4_version(atom)
+            self.read_version(atom)
             entry_count = int.from_bytes(self.buf.read(4), "big")
             atom["data"]["entry_count"] = entry_count
         elif typ == "stsz":
-            self.mp4_version(atom)
+            self.read_version(atom)
             atom["data"]["sample_size"] = int.from_bytes(self.buf.read(4), "big")
             atom["data"]["sample_count"] = int.from_bytes(self.buf.read(4), "big")
         elif typ == "stco":
-            self.mp4_version(atom)
+            self.read_version(atom)
             entry_count = int.from_bytes(self.buf.read(4), "big")
             atom["data"]["entry_count"] = entry_count
         elif typ == "sgpd":
@@ -328,7 +334,7 @@ class Mp4Module(module.RuminaterModule):
 
                 atom["data"]["entries"].append(self.buf.read(length).hex())
         elif typ == "sbgp":
-            self.mp4_version(atom)
+            self.read_version(atom)
             atom["data"]["grouping_type"] = self.buf.read(4).decode("utf-8")
 
             entry_count = int.from_bytes(self.buf.read(4), "big")
@@ -341,7 +347,7 @@ class Mp4Module(module.RuminaterModule):
                     "group_description_index": int.from_bytes(self.buf.read(4), "big")
                 })
         elif typ == "smhd":
-            self.mp4_version(atom)
+            self.read_version(atom)
             atom["data"]["balance"] = int.from_bytes(self.buf.read(2), "big") / 256
             atom["data"]["reserved"] = int.from_bytes(self.buf.read(2), "big")
         elif typ == "mp4a":
@@ -354,19 +360,15 @@ class Mp4Module(module.RuminaterModule):
             atom["data"]["reserved3"] = self.buf.read(2).hex()
             atom["data"]["samplerate"] = int.from_bytes(self.buf.read(4), "big") / 65536
 
-            atom["data"]["atoms"] = []
-            while self.buf.unit > 0:
-                atom["data"]["atoms"].append(self.read_atom())
+            self.read_more(atom)
         elif typ == "esds":
-            self.mp4_version(atom)
+            self.read_version(atom)
             atom["data"]["or"] = self.buf.readunit().hex()
         elif typ == "meta":
-            self.mp4_version(atom)
-            atom["data"]["atoms"] = []
-            while self.buf.unit > 0:
-                atom["data"]["atoms"].append(self.read_atom())
+            self.read_version(atom)
+            self.read_more(atom)
         elif typ == "data":
-            self.mp4_version(atom)
+            self.read_version(atom)
             atom["data"]["type"] = int.from_bytes(self.buf.read(4), "big")
 
             match atom["data"]["type"]:
@@ -379,11 +381,11 @@ class Mp4Module(module.RuminaterModule):
         elif typ == "free":
             atom["data"]["non-zero"] = sum(self.buf.readunit()) > 0
         elif typ == "co64":
-            self.mp4_version(atom)
+            self.read_version(atom)
             entry_count = int.from_bytes(self.buf.read(4), "big")
             atom["data"]["entry_count"] = entry_count
         elif typ == "sdtp":
-            self.mp4_version(atom)
+            self.read_version(atom)
             atom["data"]["sample_dep_type_count"] = len(self.buf.readunit())
         elif typ == "vp09":
             atom["data"]["reserved1"] = self.buf.read(6).hex()
@@ -403,9 +405,7 @@ class Mp4Module(module.RuminaterModule):
             atom["data"]["depth"] = int.from_bytes(self.buf.read(2), "big")
             atom["data"]["pre_defined3"] = self.buf.read(2).hex()
 
-            atom["data"]["atoms"] = []
-            while self.buf.unit > 0:
-                atom["data"]["atoms"].append(self.read_atom())
+            self.read_more(atom)
         elif typ == "vpcC":
             atom["data"]["profile"] = self.buf.read(1)[0]
             atom["data"]["level"] = self.buf.read(1)[0]
@@ -414,21 +414,21 @@ class Mp4Module(module.RuminaterModule):
             atom["data"]["video_full_range_flag"] = self.buf.read(1)[0]
             atom["data"]["reserved"] = self.buf.read(3).hex()
         elif typ == "trex":
-            self.mp4_version(atom)
+            self.read_version(atom)
             atom["data"]["track_ID"] = int.from_bytes(self.buf.read(4), "big")
             atom["data"]["default_sample_description_index"] = int.from_bytes(self.buf.read(4), "big")
             atom["data"]["default_sample_duration"] = int.from_bytes(self.buf.read(4), "big")
             atom["data"]["default_sample_size"] = int.from_bytes(self.buf.read(4), "big")
             atom["data"]["default_sample_flags"] = int.from_bytes(self.buf.read(4), "big")
         elif typ == "sidx":
-            version = self.mp4_version(atom)
+            version = self.read_version(atom)
             atom["data"]["reference_ID"] = int.from_bytes(self.buf.read(4), "big")
             atom["data"]["earliest_presentation_time"] = int.from_bytes(self.buf.read(4 if version == 0 else 8), "big")
             atom["data"]["first_offset"] = int.from_bytes(self.buf.read(4 if version == 0 else 8), "big")
             atom["data"]["reserved"] = self.buf.read(2).hex()
             atom["data"]["reference_count"] = int.from_bytes(self.buf.read(2), "big")
         elif typ == "mfhd":
-            self.mp4_version(atom)
+            self.read_version(atom)
             atom["data"]["sequence_number"] = int.from_bytes(self.buf.read(4), "big")
         elif typ == "tfhd":
             version = self.buf.read(1)[0]
@@ -457,7 +457,7 @@ class Mp4Module(module.RuminaterModule):
             if atom["data"]["flags"]["default_sample_flags_present"]:
                 atom["data"]["default_sample_flags"] = int.from_bytes(self.buf.read(4), "big")
         elif typ == "tfdt":
-            version = self.mp4_version(atom)
+            version = self.read_version(atom)
             atom["data"]["baseMediaDecodeTime"] = int.from_bytes(self.buf.read(4 if version == 0 else 8), "big")
         elif typ == "trun":
             version = self.buf.read(1)[0]
@@ -476,7 +476,7 @@ class Mp4Module(module.RuminaterModule):
         elif typ == "desc":
             atom["data"]["descriptor"] = self.buf.readunit().hex()
         elif typ == "loci":
-            self.mp4_version(atom)
+            self.read_version(atom)
             atom["data"]["language_code"] = int.from_bytes(self.buf.read(2), "big")
             atom["data"]["reserved"] = self.buf.read(2).hex()
             atom["data"]["longitude"] = int.from_bytes(self.buf.read(4), "big") / 65536
@@ -501,9 +501,7 @@ class Mp4Module(module.RuminaterModule):
             atom["data"]["depth"] = int.from_bytes(self.buf.read(2), "big")
             atom["data"]["pre_defined3"] = self.buf.read(2).hex()
 
-            atom["data"]["atoms"] = []
-            while self.buf.unit > 0:
-                atom["data"]["atoms"].append(self.read_atom())
+            self.read_more(atom)
         elif typ == "hvcC":
             version = self.buf.read(1)[0]
             atom["data"]["version"] = version
@@ -535,7 +533,7 @@ class Mp4Module(module.RuminaterModule):
 
                 atom["data"]["arrays"].append(array)
         elif typ == "keys":
-            self.mp4_version(atom)
+            self.read_version(atom)
             entry_count = int.from_bytes(self.buf.read(4), "big")
             atom["data"]["entry_count"] = entry_count
 
@@ -549,10 +547,10 @@ class Mp4Module(module.RuminaterModule):
                     "value": value
                 })
         elif typ == "name":
-            self.mp4_version(atom)
+            self.read_version(atom)
             atom["data"]["name"] = self.buf.readunit().decode("utf-8")
         elif typ == "titl":
-            self.mp4_version(atom)
+            self.read_version(atom)
             atom["data"]["reserved1"] = self.buf.read(2).hex()
             atom["data"]["title"] = self.buf.readunit()[:-1].decode("utf-8")
         elif typ == "cslg":
