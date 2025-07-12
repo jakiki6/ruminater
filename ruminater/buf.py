@@ -12,8 +12,8 @@ class Buf(object):
         self._size = self.tell()
         self.seek(pos)
 
-        self.unit = 0
-        self._target = 0
+        self.unit = self._size
+        self._target = self._size
         self._stack = []
 
     def available(self):
@@ -51,7 +51,9 @@ class Buf(object):
             self.unit = 0
             return self._file.read()
         else:
-            self.unit = max(self.unit - count, 0)
+            self.unit -= count
+            assert self.unit >= 0, "unit overread"
+
             return self._file.read(count)
 
     def pushunit(self):
