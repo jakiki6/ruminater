@@ -73,9 +73,7 @@ class Mp4Module(module.RuminaterModule):
                 atom["data"]["compatible_brands"].append(self.buf.read(4).decode("utf-8"))
         elif typ == "uuid":
             atom["data"]["uuid"] = str(uuid.UUID(bytes=self.buf.read(16)))
-
-            if self.buf.unit > 0:
-                atom["data"]["user-data"] = self.buf.read(length).decode("utf-8")
+            atom["data"]["user-data"] = self.buf.readunit().decode("utf-8")
         elif typ == "mvhd":
             version = self.mp4_version(atom)
 
