@@ -8,13 +8,13 @@ class EntryModule(module.RuminaterModule):
     def chew(self):
         meta = {}
 
-        data_type = magic.from_buffer(self.blob.peek(65536))
-        meta["length"] = self.blob.size()
+        data_type = magic.from_buffer(self.buf.peek(65536))
+        meta["length"] = self.buf.size()
 
         matched = False
         for k, v in mappings.items():
             if re.match(k, data_type):
-                meta |= v(self.blob).chew()
+                meta |= v(self.buf).chew()
                 matched = True
 
         if not matched:
