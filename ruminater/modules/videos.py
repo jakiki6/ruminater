@@ -555,6 +555,12 @@ class Mp4Module(module.RuminaterModule):
             self.mp4_version(atom)
             atom["data"]["reserved1"] = self.buf.read(2).hex()
             atom["data"]["title"] = self.buf.readunit()[:-1].decode("utf-8")
+        elif typ == "cslg":
+            atom["data"]["compositionToDTSShift"] = int.from_bytes(self.buf.read(4), "big")
+            atom["data"]["leastDecodeToDisplayDelta"] = int.from_bytes(self.buf.read(4), "big")
+            atom["data"]["greatestDecodeToDisplayDelta"] = int.from_bytes(self.buf.read(4), "big")
+            atom["data"]["compositionStartTime"] = int.from_bytes(self.buf.read(4), "big")
+            atom["data"]["compositionEndTime"] = int.from_bytes(self.buf.read(4), "big")
         elif typ[0] == "©" or typ == "iods":
             atom["data"]["payload"] = self.buf.readunit().hex()
         elif typ[0] == "\x00" or typ == "mdat":
