@@ -5,7 +5,7 @@ import zipfile
 
 class ZipModule(module.RuminaterModule):
     def chew(self):
-        zf = zipfile.ZipFile(self.blob, "r")
+        zf = zipfile.ZipFile(self.buf, "r")
 
         files = []
         for fileinfo in zf.infolist():

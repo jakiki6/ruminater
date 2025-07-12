@@ -24,24 +24,30 @@ class Mp4Module(module.RuminaterModule):
 
         file["type"] = "mp4"
         file["atoms"] = []
-        while not self.blob.isend():
+        while not self.buf.isend():
             file["atoms"].append(self.read_atom())
 
         return file
 
-    def read_atom(self):
-        offset = self.blob.tell()
+    def mp4_version(self, atom):
+        version = self.buf.read(1)[0]
+        atom["data"]["version"] = version
+        atom["data"]["flags"] = int.from_bytes(self.buf.read(3), "big")
+        return version
 
-        length = int.from_bytes(self.blob.read(4), "big")
+    def read_atom(self):
+        offset = self.buf.tell()
+
+        length = int.from_bytes(self.buf.read(4), "big")
         if length == 0:
-            pos = self.blob.tell()
-            self.blob.seek(0, 2)
-            length = self.blob.tell()
-            self.blob.seek(pos)
-        typ = self.blob.read(4).decode("latin-1")
+            pos = self.buf.tell()
+            self.buf.seek(0, 2)
+            length = self.buf.tell()
+            self.buf.seek(pos)
+        typ = self.buf.read(4).decode("latin-1")
 
         if length == 1:
-            length = int.from_bytes(self.blob.read(8), "big")
+            length = int.from_bytes(self.buf.read(8), "big")
 
         atom = {
             "type": typ,
@@ -51,40 +57,38 @@ class Mp4Module(module.RuminaterModule):
         }
 
         length -= 8
-        self.blob.pushunit()
-        self.blob.set_unit(length)
+        self.buf.pushunit()
+        self.buf.set_unit(length)
 
-        if typ in ("moov", "trak", "mdia", "minf", "dinf", "stbl", "udta", "ilst", "mvex", "moof", "traf", "gsst", "gstd") or (typ[0] == "©" and self.blob.peek(8)[4:8] == b"data"):
+        if typ in ("moov", "trak", "mdia", "minf", "dinf", "stbl", "udta", "ilst", "mvex", "moof", "traf", "gsst", "gstd") or (typ[0] == "©" and self.buf.peek(8)[4:8] == b"data"):
             atom["data"]["atoms"] = []
-            while self.blob.unit > 0:
+            while self.buf.unit > 0:
                 atom["data"]["atoms"].append(self.read_atom())
         elif typ == "ftyp":
-            atom["data"]["major_brand"] = self.blob.read(4).decode("utf-8")
-            atom["data"]["minor_version"] = int.from_bytes(self.blob.read(4), "big")
+            atom["data"]["major_brand"] = self.buf.read(4).decode("utf-8")
+            atom["data"]["minor_version"] = int.from_bytes(self.buf.read(4), "big")
             atom["data"]["compatible_brands"] = []
 
-            while self.blob.unit > 0:
-                atom["data"]["compatible_brands"].append(self.blob.read(4).decode("utf-8"))
+            while self.buf.unit > 0:
+                atom["data"]["compatible_brands"].append(self.buf.read(4).decode("utf-8"))
         elif typ == "uuid":
-            atom["data"]["uuid"] = str(uuid.UUID(bytes=self.blob.read(16)))
+            atom["data"]["uuid"] = str(uuid.UUID(bytes=self.buf.read(16)))
 
-            if self.blob.unit > 0:
-                atom["data"]["user-data"] = self.blob.read(length).decode("utf-8")
+            if self.buf.unit > 0:
+                atom["data"]["user-data"] = self.buf.read(length).decode("utf-8")
         elif typ == "mvhd":
-            version = self.blob.read(1)[0]
-            atom["data"]["version"] = version
-            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
+            version = self.mp4_version(atom)
 
             if version == 0:
-                creation_time = int.from_bytes(self.blob.read(4), "big")
-                modification_time = int.from_bytes(self.blob.read(4), "big")
-                timescale = int.from_bytes(self.blob.read(4), "big")
-                duration = int.from_bytes(self.blob.read(4), "big")
+                creation_time = int.from_bytes(self.buf.read(4), "big")
+                modification_time = int.from_bytes(self.buf.read(4), "big")
+                timescale = int.from_bytes(self.buf.read(4), "big")
+                duration = int.from_bytes(self.buf.read(4), "big")
             elif version == 1:
-                creation_time = int.from_bytes(self.blob.read(8), "big")
-                modification_time = int.from_bytes(self.blob.read(8), "big")
-                timescale = int.from_bytes(self.blob.read(4), "big")
-                duration = int.from_bytes(self.blob.read(8), "big")
+                creation_time = int.from_bytes(self.buf.read(8), "big")
+                modification_time = int.from_bytes(self.buf.read(8), "big")
+                timescale = int.from_bytes(self.buf.read(4), "big")
+                duration = int.from_bytes(self.buf.read(8), "big")
 
             if version in (0, 1):
                 atom["data"]["creation_time"] = mp4_time_to_iso(creation_time)
@@ -92,16 +96,16 @@ class Mp4Module(module.RuminaterModule):
                 atom["data"]["timescale"] = timescale
                 atom["data"]["duration"] = duration
 
-                atom["data"]["rate"] = int.from_bytes(self.blob.read(4), "big") / 65536
-                atom["data"]["volume"] = int.from_bytes(self.blob.read(2), "big") / 256
-                atom["data"]["reserved"] = self.blob.read(10).hex()
-                atom["data"]["matrix"] = self.blob.read(36).hex()
-                atom["data"]["pre_defined"] = self.blob.read(24).hex()
-                atom["data"]["next_track_ID"] = int.from_bytes(self.blob.read(4), "big")
+                atom["data"]["rate"] = int.from_bytes(self.buf.read(4), "big") / 65536
+                atom["data"]["volume"] = int.from_bytes(self.buf.read(2), "big") / 256
+                atom["data"]["reserved"] = self.buf.read(10).hex()
+                atom["data"]["matrix"] = self.buf.read(36).hex()
+                atom["data"]["pre_defined"] = self.buf.read(24).hex()
+                atom["data"]["next_track_ID"] = int.from_bytes(self.buf.read(4), "big")
         elif typ == "tkhd":
-            version = self.blob.read(1)[0]
+            version = self.buf.read(1)[0]
             atom["data"]["version"] = version
-            flags = int.from_bytes(self.blob.read(3), "big")
+            flags = int.from_bytes(self.buf.read(3), "big")
             atom["data"]["flags"] = {
                 "raw": flags,
                 "enabled": bool(flags & 1),
@@ -110,18 +114,18 @@ class Mp4Module(module.RuminaterModule):
             }
 
             if version == 0:
-                creation_time = int.from_bytes(self.blob.read(4), "big")
-                modification_time = int.from_bytes(self.blob.read(4), "big")
-                track_ID = int.from_bytes(self.blob.read(4), "big")
-                reserved1 = self.blob.read(4)
-                duration = int.from_bytes(self.blob.read(4), "big")
+                creation_time = int.from_bytes(self.buf.read(4), "big")
+                modification_time = int.from_bytes(self.buf.read(4), "big")
+                track_ID = int.from_bytes(self.buf.read(4), "big")
+                reserved1 = self.buf.read(4)
+                duration = int.from_bytes(self.buf.read(4), "big")
 
             if version == 1:
-                creation_time = int.from_bytes(self.blob.read(8), "big")
-                modification_time = int.from_bytes(self.blob.read(8), "big")
-                track_ID = int.from_bytes(self.blob.read(4), "big")
-                reserved1 = self.blob.read(4)
-                duration = int.from_bytes(self.blob.read(8), "big")
+                creation_time = int.from_bytes(self.buf.read(8), "big")
+                modification_time = int.from_bytes(self.buf.read(8), "big")
+                track_ID = int.from_bytes(self.buf.read(4), "big")
+                reserved1 = self.buf.read(4)
+                duration = int.from_bytes(self.buf.read(8), "big")
 
             if version in (0, 1):
                 atom["data"]["creation_time"] = mp4_time_to_iso(creation_time)
@@ -130,55 +134,51 @@ class Mp4Module(module.RuminaterModule):
                 atom["data"]["reserved1"] = reserved1.hex()
                 atom["data"]["duration"] = duration
 
-                atom["data"]["reserved2"] = self.blob.read(8).hex()
-                atom["data"]["layer"] = int.from_bytes(self.blob.read(2), "big")
-                atom["data"]["alternate_group"] = int.from_bytes(self.blob.read(2), "big")
-                atom["data"]["volume"] = int.from_bytes(self.blob.read(2), "big") / 256
-                atom["data"]["reserved3"] = self.blob.read(2).hex()
-                atom["data"]["matrix"] = self.blob.read(36).hex()
-                atom["data"]["width"] = int.from_bytes(self.blob.read(4), "big") / 65536
-                atom["data"]["height"] = int.from_bytes(self.blob.read(4), "big") / 65536
+                atom["data"]["reserved2"] = self.buf.read(8).hex()
+                atom["data"]["layer"] = int.from_bytes(self.buf.read(2), "big")
+                atom["data"]["alternate_group"] = int.from_bytes(self.buf.read(2), "big")
+                atom["data"]["volume"] = int.from_bytes(self.buf.read(2), "big") / 256
+                atom["data"]["reserved3"] = self.buf.read(2).hex()
+                atom["data"]["matrix"] = self.buf.read(36).hex()
+                atom["data"]["width"] = int.from_bytes(self.buf.read(4), "big") / 65536
+                atom["data"]["height"] = int.from_bytes(self.buf.read(4), "big") / 65536
         elif typ == "edts":
             atom["data"] = self.read_atom()
         elif typ == "elst":
-            version = self.blob.read(1)[0]
-            atom["data"]["version"] = version
-            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
+            version = self.mp4_version(atom)
             atom["data"]["entries"] = []
-            entry_count = int.from_bytes(self.blob.read(4), "big")
+            entry_count = int.from_bytes(self.buf.read(4), "big")
             atom["data"]["entry_count"] = entry_count
 
             for i in range(0, entry_count):
                 if version == 0:
-                    segment_duration = int.from_bytes(self.blob.read(4), "big")
-                    media_time = int.from_bytes(self.blob.read(4), "big")
+                    segment_duration = int.from_bytes(self.buf.read(4), "big")
+                    media_time = int.from_bytes(self.buf.read(4), "big")
                 elif version == 1:
-                    segment_duration = int.from_bytes(self.blob.read(8), "big")
-                    media_time = int.from_bytes(self.blob.read(8), "big")
+                    segment_duration = int.from_bytes(self.buf.read(8), "big")
+                    media_time = int.from_bytes(self.buf.read(8), "big")
 
                 if version in (0, 1):
                     entry = {}
                     entry["segment_duration"] = segment_duration
                     entry["media_time"] = media_time
-                    entry["media_rate_integer"] = int.from_bytes(self.blob.read(2), "big")
-                    entry["media_rate_fraction"] = int.from_bytes(self.blob.read(2), "big")
+                    entry["media_rate_integer"] = int.from_bytes(self.buf.read(2), "big")
+                    entry["media_rate_fraction"] = int.from_bytes(self.buf.read(2), "big")
 
                     atom["data"]["entries"].append(entry)
         elif typ == "mdhd":
-            version = self.blob.read(1)[0]
-            atom["data"]["version"] = version
-            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
+            version = self.mp4_version(atom)
 
             if version == 0:
-                creation_time = int.from_bytes(self.blob.read(4), "big")
-                modification_time = int.from_bytes(self.blob.read(4), "big")
-                timescale = int.from_bytes(self.blob.read(4), "big")
-                duration = int.from_bytes(self.blob.read(4), "big")
+                creation_time = int.from_bytes(self.buf.read(4), "big")
+                modification_time = int.from_bytes(self.buf.read(4), "big")
+                timescale = int.from_bytes(self.buf.read(4), "big")
+                duration = int.from_bytes(self.buf.read(4), "big")
             elif version == 1:
-                creation_time = int.from_bytes(self.blob.read(8), "big")
-                modification_time = int.from_bytes(self.blob.read(8), "big")
-                timescale = int.from_bytes(self.blob.read(4), "big")
-                duration = int.from_bytes(self.blob.read(8), "big")
+                creation_time = int.from_bytes(self.buf.read(8), "big")
+                modification_time = int.from_bytes(self.buf.read(8), "big")
+                timescale = int.from_bytes(self.buf.read(4), "big")
+                duration = int.from_bytes(self.buf.read(8), "big")
 
             if version in (0, 1):
                 atom["data"]["creation_time"] = mp4_time_to_iso(creation_time)
@@ -186,307 +186,258 @@ class Mp4Module(module.RuminaterModule):
                 atom["data"]["timescale"] = timescale
                 atom["data"]["duration"] = duration
 
-                atom["data"]["language"] = mp4_decode_mdhd_language(self.blob.read(2))
-                atom["data"]["pre_defined"] = self.blob.read(2).hex()
+                atom["data"]["language"] = mp4_decode_mdhd_language(self.buf.read(2))
+                atom["data"]["pre_defined"] = self.buf.read(2).hex()
         elif typ == "hdlr":
-            version = self.blob.read(1)[0]
-            atom["data"]["version"] = version
-            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
-            atom["data"]["pre_defined"] = self.blob.read(4).hex()
-            atom["data"]["handler_type"] = self.blob.read(4).decode("utf-8")
-            atom["data"]["reserved"] = self.blob.read(12).hex()
-            atom["data"]["name"] = self.blob.readunit()[:-1].decode("utf-8")
+            self.mp4_version(atom)
+            atom["data"]["pre_defined"] = self.buf.read(4).hex()
+            atom["data"]["handler_type"] = self.buf.read(4).decode("utf-8")
+            atom["data"]["reserved"] = self.buf.read(12).hex()
+            atom["data"]["name"] = self.buf.readunit()[:-1].decode("utf-8")
         elif typ == "vmhd":
-            version = self.blob.read(1)[0]
-            atom["data"]["version"] = version
-            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
-            atom["data"]["graphicsmode"] = int.from_bytes(self.blob.read(2), "big") 
-            atom["data"]["opcolor"] = [int.from_bytes(self.blob.read(2), "big") for _ in range(0, 3)]
+            self.mp4_version(atom)
+            atom["data"]["graphicsmode"] = int.from_bytes(self.buf.read(2), "big") 
+            atom["data"]["opcolor"] = [int.from_bytes(self.buf.read(2), "big") for _ in range(0, 3)]
         elif typ in ("dref", "stsd"):
-            version = self.blob.read(1)[0]
-            atom["data"]["version"] = version
-            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
-            entry_count = int.from_bytes(self.blob.read(4), "big")
+            self.mp4_version(atom)
+            entry_count = int.from_bytes(self.buf.read(4), "big")
 
             atom["data"]["entries"] = []
             for i in range(0, entry_count):
                 atom["data"]["entries"].append(self.read_atom())
         elif typ == "url ":
-            version = self.blob.read(1)[0]
+            version = self.buf.read(1)[0]
             atom["data"]["version"] = version
-            flags = int.from_bytes(self.blob.read(3), "big")
+            flags = int.from_bytes(self.buf.read(3), "big")
             atom["data"]["flags"] = {
                 "raw": flags,
                 "local": bool(flags & 1)
             }
 
-            atom["data"]["location"] = self.blob.readunit()[:-1].decode("utf-8")
+            atom["data"]["location"] = self.buf.readunit()[:-1].decode("utf-8")
         elif typ == "avc1":
-            atom["data"]["reserved1"] = self.blob.read(6).hex()
-            atom["data"]["data_reference_index"] = int.from_bytes(self.blob.read(2), "big")
-            atom["data"]["pre_defined1"] = self.blob.read(2).hex()
-            atom["data"]["reserved2"] = self.blob.read(2).hex()
-            atom["data"]["pre_defined2"] = self.blob.read(12).hex()
-            atom["data"]["width"] = int.from_bytes(self.blob.read(2), "big")
-            atom["data"]["height"] = int.from_bytes(self.blob.read(2), "big")
-            atom["data"]["horizresolution"] = int.from_bytes(self.blob.read(4), "big") / 65536
-            atom["data"]["vertresolution"] = int.from_bytes(self.blob.read(4), "big") / 65536
-            atom["data"]["reserved3"] = self.blob.read(4).hex()
-            atom["data"]["frame_count"] = int.from_bytes(self.blob.read(2), "big")
-            l = self.blob.read(1)[0]
-            name = self.blob.read(31)
+            atom["data"]["reserved1"] = self.buf.read(6).hex()
+            atom["data"]["data_reference_index"] = int.from_bytes(self.buf.read(2), "big")
+            atom["data"]["pre_defined1"] = self.buf.read(2).hex()
+            atom["data"]["reserved2"] = self.buf.read(2).hex()
+            atom["data"]["pre_defined2"] = self.buf.read(12).hex()
+            atom["data"]["width"] = int.from_bytes(self.buf.read(2), "big")
+            atom["data"]["height"] = int.from_bytes(self.buf.read(2), "big")
+            atom["data"]["horizresolution"] = int.from_bytes(self.buf.read(4), "big") / 65536
+            atom["data"]["vertresolution"] = int.from_bytes(self.buf.read(4), "big") / 65536
+            atom["data"]["reserved3"] = self.buf.read(4).hex()
+            atom["data"]["frame_count"] = int.from_bytes(self.buf.read(2), "big")
+            l = self.buf.read(1)[0]
+            name = self.buf.read(31)
             atom["data"]["compressorname"] = name[:l].decode("utf-8")
-            atom["data"]["depth"] = int.from_bytes(self.blob.read(2), "big")
-            atom["data"]["pre_defined3"] = self.blob.read(2).hex()
+            atom["data"]["depth"] = int.from_bytes(self.buf.read(2), "big")
+            atom["data"]["pre_defined3"] = self.buf.read(2).hex()
 
             atom["data"]["atoms"] = []
-            while self.blob.unit > 0:
+            while self.buf.unit > 0:
                 atom["data"]["atoms"].append(self.read_atom())
         elif typ == "avcC":
-            atom["data"]["configurationVersion"] = self.blob.read(1)[0]
-            atom["data"]["AVCProfileIndication"] = self.blob.read(1)[0]
-            atom["data"]["profile_compatibility"] = self.blob.read(1)[0]
-            atom["data"]["AVCLevelIndication"] = self.blob.read(1)[0]
-            atom["data"]["lengthSizeMinusOne"] = self.blob.read(1)[0]
+            atom["data"]["configurationVersion"] = self.buf.read(1)[0]
+            atom["data"]["AVCProfileIndication"] = self.buf.read(1)[0]
+            atom["data"]["profile_compatibility"] = self.buf.read(1)[0]
+            atom["data"]["AVCLevelIndication"] = self.buf.read(1)[0]
+            atom["data"]["lengthSizeMinusOne"] = self.buf.read(1)[0]
 
-            atom["data"]["numOfSequenceParameterSets"] = self.blob.read(1)[0]
+            atom["data"]["numOfSequenceParameterSets"] = self.buf.read(1)[0]
             atom["data"]["sequenceParameterSets"] = []
             for i in range(0, atom["data"]["numOfSequenceParameterSets"] & 0b00011111):
-                l = int.from_bytes(self.blob.read(2), "big")
-                atom["data"]["sequenceParameterSets"].append(self.blob.read(l).hex())
+                l = int.from_bytes(self.buf.read(2), "big")
+                atom["data"]["sequenceParameterSets"].append(self.buf.read(l).hex())
 
-            atom["data"]["numOfPictureParameterSets"] = self.blob.read(1)[0]
+            atom["data"]["numOfPictureParameterSets"] = self.buf.read(1)[0]
             atom["data"]["pictureParameterSets"] = []
             for i in range(0, atom["data"]["numOfPictureParameterSets"]):
-                l = int.from_bytes(self.blob.read(2), "big")
-                atom["data"]["pictureParameterSets"].append(self.blob.read(l).hex())
+                l = int.from_bytes(self.buf.read(2), "big")
+                atom["data"]["pictureParameterSets"].append(self.buf.read(l).hex())
         elif typ == "colr":
-            atom["data"]["color_type"] = self.blob.read(4).decode("utf-8")
+            atom["data"]["color_type"] = self.buf.read(4).decode("utf-8")
 
             match atom["data"]["color_type"]:
                 case "nclc":
-                    atom["data"]["color_primaries"] = int.from_bytes(self.blob.read(2), "big")
-                    atom["data"]["transfer_characteristics"] = int.from_bytes(self.blob.read(2), "big")
-                    atom["data"]["matrix_coefficients"] = int.from_bytes(self.blob.read(2), "big")
+                    atom["data"]["color_primaries"] = int.from_bytes(self.buf.read(2), "big")
+                    atom["data"]["transfer_characteristics"] = int.from_bytes(self.buf.read(2), "big")
+                    atom["data"]["matrix_coefficients"] = int.from_bytes(self.buf.read(2), "big")
                 case "rICC" | "prof":
-                    atom["data"]["icc_profile_data"] = self.blob.readunit().hex()
+                    atom["data"]["icc_profile_data"] = self.buf.readunit().hex()
                 case "nclx":
-                    atom["data"]["color_primaries"] = int.from_bytes(self.blob.read(2), "big")
-                    atom["data"]["transfer_characteristics"] = int.from_bytes(self.blob.read(2), "big")
-                    atom["data"]["matrix_coefficients"] = int.from_bytes(self.blob.read(2), "big")
-                    full_range_flag = self.blob.read(1)[0]
+                    atom["data"]["color_primaries"] = int.from_bytes(self.buf.read(2), "big")
+                    atom["data"]["transfer_characteristics"] = int.from_bytes(self.buf.read(2), "big")
+                    atom["data"]["matrix_coefficients"] = int.from_bytes(self.buf.read(2), "big")
+                    full_range_flag = self.buf.read(1)[0]
                     atom["data"]["full_range_flag"] = {
                         "raw": full_range_flag,
                         "full": bool(full_range_flag & 0x80)
                     }
         elif typ == "pasp":
-            atom["data"]["hSpacing"] = int.from_bytes(self.blob.read(4), "big")
-            atom["data"]["vSpacing"] = int.from_bytes(self.blob.read(4), "big")
+            atom["data"]["hSpacing"] = int.from_bytes(self.buf.read(4), "big")
+            atom["data"]["vSpacing"] = int.from_bytes(self.buf.read(4), "big")
         elif typ == "btrt":
-            atom["data"]["buffer_size"] = int.from_bytes(self.blob.read(4), "big")
-            atom["data"]["max_bitrate"] = int.from_bytes(self.blob.read(4), "big")
-            atom["data"]["avg_bitrate"] = int.from_bytes(self.blob.read(4), "big")
+            atom["data"]["buffer_size"] = int.from_bytes(self.buf.read(4), "big")
+            atom["data"]["max_bitrate"] = int.from_bytes(self.buf.read(4), "big")
+            atom["data"]["avg_bitrate"] = int.from_bytes(self.buf.read(4), "big")
         elif typ == "stts":
-            version = self.blob.read(1)[0]
-            atom["data"]["version"] = version
-            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
-
-            entry_count = int.from_bytes(self.blob.read(4), "big")
+            self.mp4_version(atom)
+            entry_count = int.from_bytes(self.buf.read(4), "big")
             atom["data"]["entry_count"] = entry_count
         elif typ == "stss":
-            version = self.blob.read(1)[0]
-            atom["data"]["version"] = version
-            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
-
-            entry_count = int.from_bytes(self.blob.read(4), "big")
+            self.mp4_version(atom)
+            entry_count = int.from_bytes(self.buf.read(4), "big")
             atom["data"]["entry_count"] = entry_count
         elif typ == "ctts":
-            version = self.blob.read(1)[0]
-            atom["data"]["version"] = version
-            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
-
-            entry_count = int.from_bytes(self.blob.read(4), "big")
+            self.mp4_version(atom)
+            entry_count = int.from_bytes(self.buf.read(4), "big")
             atom["data"]["entry_count"] = entry_count
         elif typ == "stsc":
-            version = self.blob.read(1)[0]
-            atom["data"]["version"] = version
-            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
-
-            entry_count = int.from_bytes(self.blob.read(4), "big")
+            self.mp4_version(atom)
+            entry_count = int.from_bytes(self.buf.read(4), "big")
             atom["data"]["entry_count"] = entry_count
         elif typ == "stsz":
-            version = self.blob.read(1)[0]
-            atom["data"]["version"] = version
-            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
-            atom["data"]["sample_size"] = int.from_bytes(self.blob.read(4), "big")
-            atom["data"]["sample_count"] = int.from_bytes(self.blob.read(4), "big")
+            self.mp4_version(atom)
+            atom["data"]["sample_size"] = int.from_bytes(self.buf.read(4), "big")
+            atom["data"]["sample_count"] = int.from_bytes(self.buf.read(4), "big")
         elif typ == "stco":
-            version = self.blob.read(1)[0]
-            atom["data"]["version"] = version
-            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
-
-            entry_count = int.from_bytes(self.blob.read(4), "big")
+            self.mp4_version(atom)
+            entry_count = int.from_bytes(self.buf.read(4), "big")
             atom["data"]["entry_count"] = entry_count
         elif typ == "sgpd":
-            version = self.blob.read(1)[0]
+            version = self.buf.read(1)[0]
             atom["data"]["version"] = version
-            flags = int.from_bytes(self.blob.read(3), "big")
+            flags = int.from_bytes(self.buf.read(3), "big")
             atom["data"]["flags"] = {
                 "raw": flags,
                 "variable_length": bool(flags & 1)
             }
 
-            atom["data"]["grouping_type"] = self.blob.read(4).decode("utf-8")
+            atom["data"]["grouping_type"] = self.buf.read(4).decode("utf-8")
 
             default_length = 0
             if version == 1 and flags & 1 == 0:
-                default_length = int.from_bytes(self.blob.read(4), "big")
+                default_length = int.from_bytes(self.buf.read(4), "big")
 
-            entry_count = int.from_bytes(self.blob.read(4), "big")
+            entry_count = int.from_bytes(self.buf.read(4), "big")
             atom["data"]["entry_count"] = entry_count
 
             atom["data"]["entries"] = []
             for i in range(0, entry_count):
                 length = default_length
                 if length == 0:
-                    length = int.from_bytes(self.blob.read(4), "big")
+                    length = int.from_bytes(self.buf.read(4), "big")
 
-                atom["data"]["entries"].append(self.blob.read(length).hex())
+                atom["data"]["entries"].append(self.buf.read(length).hex())
         elif typ == "sbgp":
-            version = self.blob.read(1)[0]
-            atom["data"]["version"] = version
-            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
+            self.mp4_version(atom)
+            atom["data"]["grouping_type"] = self.buf.read(4).decode("utf-8")
 
-            atom["data"]["grouping_type"] = self.blob.read(4).decode("utf-8")
-
-            entry_count = int.from_bytes(self.blob.read(4), "big")
+            entry_count = int.from_bytes(self.buf.read(4), "big")
             atom["data"]["entry_count"] = entry_count
 
             atom["data"]["entries"] = []
             for i in range(0, entry_count):
                 atom["data"]["entries"].append({
-                    "sample_count": int.from_bytes(self.blob.read(4), "big"),
-                    "group_description_index": int.from_bytes(self.blob.read(4), "big")
+                    "sample_count": int.from_bytes(self.buf.read(4), "big"),
+                    "group_description_index": int.from_bytes(self.buf.read(4), "big")
                 })
         elif typ == "smhd":
-            version = self.blob.read(1)[0]
-            atom["data"]["version"] = version
-            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
-            atom["data"]["balance"] = int.from_bytes(self.blob.read(2), "big") / 256
-            atom["data"]["reserved"] = int.from_bytes(self.blob.read(2), "big")
+            self.mp4_version(atom)
+            atom["data"]["balance"] = int.from_bytes(self.buf.read(2), "big") / 256
+            atom["data"]["reserved"] = int.from_bytes(self.buf.read(2), "big")
         elif typ == "mp4a":
-            atom["data"]["reserved1"] = self.blob.read(6).hex()
-            atom["data"]["data_reference_index"] = int.from_bytes(self.blob.read(2), "big")
-            atom["data"]["reserved2"] = self.blob.read(8).hex()
-            atom["data"]["channel_count"] = int.from_bytes(self.blob.read(2), "big")
-            atom["data"]["samplesize"] = int.from_bytes(self.blob.read(2), "big")
-            atom["data"]["pre_defined"] = self.blob.read(2).hex()
-            atom["data"]["reserved3"] = self.blob.read(2).hex()
-            atom["data"]["samplerate"] = int.from_bytes(self.blob.read(4), "big") / 65536
+            atom["data"]["reserved1"] = self.buf.read(6).hex()
+            atom["data"]["data_reference_index"] = int.from_bytes(self.buf.read(2), "big")
+            atom["data"]["reserved2"] = self.buf.read(8).hex()
+            atom["data"]["channel_count"] = int.from_bytes(self.buf.read(2), "big")
+            atom["data"]["samplesize"] = int.from_bytes(self.buf.read(2), "big")
+            atom["data"]["pre_defined"] = self.buf.read(2).hex()
+            atom["data"]["reserved3"] = self.buf.read(2).hex()
+            atom["data"]["samplerate"] = int.from_bytes(self.buf.read(4), "big") / 65536
 
             atom["data"]["atoms"] = []
-            while self.blob.unit > 0:
+            while self.buf.unit > 0:
                 atom["data"]["atoms"].append(self.read_atom())
         elif typ == "esds":
-            version = self.blob.read(1)[0]
-            atom["data"]["version"] = version
-            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
-
-            atom["data"]["ES_descriptor"] = self.blob.readunit().hex()
+            self.mp4_version(atom)
+            atom["data"]["ES_descriptor"] = self.buf.readunit().hex()
         elif typ == "meta":
-            version = self.blob.read(1)[0]
-            atom["data"]["version"] = version
-            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
-
+            self.mp4_version(atom)
             atom["data"]["atoms"] = []
-            while self.blob.unit > 0:
+            while self.buf.unit > 0:
                 atom["data"]["atoms"].append(self.read_atom())
         elif typ == "data":
-            version = self.blob.read(1)[0]
-            atom["data"]["version"] = version
-            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
-            atom["data"]["type"] = int.from_bytes(self.blob.read(4), "big")
+            self.mp4_version(atom)
+            atom["data"]["type"] = int.from_bytes(self.buf.read(4), "big")
 
             match atom["data"]["type"]:
                 case 0:
-                    atom["data"]["payload"] = self.blob.readunit().decode("utf-8")
+                    atom["data"]["payload"] = self.buf.readunit().decode("utf-8")
                 case 1:
-                    atom["data"]["payload"] = self.blob.readunit().decode("utf-16")
+                    atom["data"]["payload"] = self.buf.readunit().decode("utf-16")
                 case _:
-                    atom["data"]["payload"] = self.blob.readunit().hex()
+                    atom["data"]["payload"] = self.buf.readunit().hex()
         elif typ == "free":
-            atom["data"]["non-zero"] = sum(self.blob.readunit()) > 0
-        elif typ == "mdat":
-            self.blob.skipunit()
+            atom["data"]["non-zero"] = sum(self.buf.readunit()) > 0
         elif typ == "co64":
-            version = self.blob.read(1)[0]
-            atom["data"]["version"] = version
-            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
-
-            entry_count = int.from_bytes(self.blob.read(4), "big")
+            self.mp4_version(atom)
+            entry_count = int.from_bytes(self.buf.read(4), "big")
             atom["data"]["entry_count"] = entry_count
         elif typ == "sdtp":
-            version = self.blob.read(1)[0]
-            atom["data"]["version"] = version
-            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
-            atom["data"]["sample_dep_type_count"] = len(self.blob.readunit())
+            self.mp4_version(atom)
+            atom["data"]["sample_dep_type_count"] = len(self.buf.readunit())
         elif typ[0] == "©":
-            atom["data"]["payload"] = self.blob.readunit().hex()
+            atom["data"]["payload"] = self.buf.readunit().hex()
         elif typ == "vp09":
-            atom["data"]["reserved1"] = self.blob.read(6).hex()
-            atom["data"]["data_reference_index"] = int.from_bytes(self.blob.read(2), "big")
-            atom["data"]["pre_defined1"] = self.blob.read(2).hex()
-            atom["data"]["reserved2"] = self.blob.read(2).hex()
-            atom["data"]["pre_defined2"] = self.blob.read(12).hex()
-            atom["data"]["width"] = int.from_bytes(self.blob.read(2), "big")
-            atom["data"]["height"] = int.from_bytes(self.blob.read(2), "big")
-            atom["data"]["horizresolution"] = int.from_bytes(self.blob.read(4), "big")
-            atom["data"]["vertresolution"] = int.from_bytes(self.blob.read(4), "big")
-            atom["data"]["reserved3"] = self.blob.read(4).hex()
-            atom["data"]["frame_count"] = int.from_bytes(self.blob.read(2), "big")
-            l = self.blob.read(1)[0]
-            name = self.blob.read(31)
+            atom["data"]["reserved1"] = self.buf.read(6).hex()
+            atom["data"]["data_reference_index"] = int.from_bytes(self.buf.read(2), "big")
+            atom["data"]["pre_defined1"] = self.buf.read(2).hex()
+            atom["data"]["reserved2"] = self.buf.read(2).hex()
+            atom["data"]["pre_defined2"] = self.buf.read(12).hex()
+            atom["data"]["width"] = int.from_bytes(self.buf.read(2), "big")
+            atom["data"]["height"] = int.from_bytes(self.buf.read(2), "big")
+            atom["data"]["horizresolution"] = int.from_bytes(self.buf.read(4), "big")
+            atom["data"]["vertresolution"] = int.from_bytes(self.buf.read(4), "big")
+            atom["data"]["reserved3"] = self.buf.read(4).hex()
+            atom["data"]["frame_count"] = int.from_bytes(self.buf.read(2), "big")
+            l = self.buf.read(1)[0]
+            name = self.buf.read(31)
             atom["data"]["compressorname"] = name[:l].decode("utf-8")
-            atom["data"]["depth"] = int.from_bytes(self.blob.read(2), "big")
-            atom["data"]["pre_defined3"] = self.blob.read(2).hex()
+            atom["data"]["depth"] = int.from_bytes(self.buf.read(2), "big")
+            atom["data"]["pre_defined3"] = self.buf.read(2).hex()
 
             atom["data"]["atoms"] = []
-            while self.blob.unit > 0:
+            while self.buf.unit > 0:
                 atom["data"]["atoms"].append(self.read_atom())
         elif typ == "vpcC":
-            atom["data"]["profile"] = self.blob.read(1)[0]
-            atom["data"]["level"] = self.blob.read(1)[0]
-            atom["data"]["bit_depth"] = self.blob.read(1)[0]
-            atom["data"]["chroma_subsampling"] = self.blob.read(1)[0]
-            atom["data"]["video_full_range_flag"] = self.blob.read(1)[0]
-            atom["data"]["reserved"] = self.blob.read(3).hex()
+            atom["data"]["profile"] = self.buf.read(1)[0]
+            atom["data"]["level"] = self.buf.read(1)[0]
+            atom["data"]["bit_depth"] = self.buf.read(1)[0]
+            atom["data"]["chroma_subsampling"] = self.buf.read(1)[0]
+            atom["data"]["video_full_range_flag"] = self.buf.read(1)[0]
+            atom["data"]["reserved"] = self.buf.read(3).hex()
         elif typ == "trex":
-            version = self.blob.read(1)[0]
-            atom["data"]["version"] = version
-            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
-            atom["data"]["track_ID"] = int.from_bytes(self.blob.read(4), "big")
-            atom["data"]["default_sample_description_index"] = int.from_bytes(self.blob.read(4), "big")
-            atom["data"]["default_sample_duration"] = int.from_bytes(self.blob.read(4), "big")
-            atom["data"]["default_sample_size"] = int.from_bytes(self.blob.read(4), "big")
-            atom["data"]["default_sample_flags"] = int.from_bytes(self.blob.read(4), "big")
+            self.mp4_version(atom)
+            atom["data"]["track_ID"] = int.from_bytes(self.buf.read(4), "big")
+            atom["data"]["default_sample_description_index"] = int.from_bytes(self.buf.read(4), "big")
+            atom["data"]["default_sample_duration"] = int.from_bytes(self.buf.read(4), "big")
+            atom["data"]["default_sample_size"] = int.from_bytes(self.buf.read(4), "big")
+            atom["data"]["default_sample_flags"] = int.from_bytes(self.buf.read(4), "big")
         elif typ == "sidx":
-            version = self.blob.read(1)[0]
-            atom["data"]["version"] = version
-            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
-            atom["data"]["reference_ID"] = int.from_bytes(self.blob.read(4), "big")
-            atom["data"]["earliest_presentation_time"] = int.from_bytes(self.blob.read(4 if version == 0 else 8), "big")
-            atom["data"]["first_offset"] = int.from_bytes(self.blob.read(4 if version == 0 else 8), "big")
-            atom["data"]["reserved"] = self.blob.read(2).hex()
-            atom["data"]["reference_count"] = int.from_bytes(self.blob.read(2), "big")
+            version = self.mp4_version(atom)
+            atom["data"]["reference_ID"] = int.from_bytes(self.buf.read(4), "big")
+            atom["data"]["earliest_presentation_time"] = int.from_bytes(self.buf.read(4 if version == 0 else 8), "big")
+            atom["data"]["first_offset"] = int.from_bytes(self.buf.read(4 if version == 0 else 8), "big")
+            atom["data"]["reserved"] = self.buf.read(2).hex()
+            atom["data"]["reference_count"] = int.from_bytes(self.buf.read(2), "big")
         elif typ == "mfhd":
-            version = self.blob.read(1)[0]
-            atom["data"]["version"] = version
-            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
-            atom["data"]["sequence_number"] = int.from_bytes(self.blob.read(4), "big")
+            self.mp4_version(atom)
+            atom["data"]["sequence_number"] = int.from_bytes(self.buf.read(4), "big")
         elif typ == "tfhd":
-            version = self.blob.read(1)[0]
+            version = self.buf.read(1)[0]
             atom["data"]["version"] = version
-            flags = int.from_bytes(self.blob.read(3), "big")
+            flags = int.from_bytes(self.buf.read(3), "big")
             atom["data"]["flags"] = {
                 "raw": flags,
                 "base_data_offset_present": bool(flags & 1),
@@ -497,27 +448,25 @@ class Mp4Module(module.RuminaterModule):
                 "no_samples": bool(flags & 65536),
                 "base_is_moof": bool(flags & 131072)
             }
-            atom["data"]["track_ID"] = int.from_bytes(self.blob.read(4), "big")
+            atom["data"]["track_ID"] = int.from_bytes(self.buf.read(4), "big")
 
             if atom["data"]["flags"]["base_data_offset_present"]:
-                atom["data"]["base_data_offset"] = int.from_bytes(self.blob.read(8), "big")
+                atom["data"]["base_data_offset"] = int.from_bytes(self.buf.read(8), "big")
             if atom["data"]["flags"]["sample_description_index_present"]:
-                atom["data"]["sample_description_index"] = int.from_bytes(self.blob.read(4), "big")
+                atom["data"]["sample_description_index"] = int.from_bytes(self.buf.read(4), "big")
             if atom["data"]["flags"]["default_sample_duration_present"]:
-                atom["data"]["default_sample_duration"] = int.from_bytes(self.blob.read(4), "big")
+                atom["data"]["default_sample_duration"] = int.from_bytes(self.buf.read(4), "big")
             if atom["data"]["flags"]["default_sample_size_present"]:
-                atom["data"]["default_sample_size"] = int.from_bytes(self.blob.read(4), "big")
+                atom["data"]["default_sample_size"] = int.from_bytes(self.buf.read(4), "big")
             if atom["data"]["flags"]["default_sample_flags_present"]:
-                atom["data"]["default_sample_flags"] = int.from_bytes(self.blob.read(4), "big")
+                atom["data"]["default_sample_flags"] = int.from_bytes(self.buf.read(4), "big")
         elif typ == "tfdt":
-            version = self.blob.read(1)[0]
-            atom["data"]["version"] = version
-            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
-            atom["data"]["baseMediaDecodeTime"] = int.from_bytes(self.blob.read(4 if version == 0 else 8), "big")
+            version = self.mp4_version(atom)
+            atom["data"]["baseMediaDecodeTime"] = int.from_bytes(self.buf.read(4 if version == 0 else 8), "big")
         elif typ == "trun":
-            version = self.blob.read(1)[0]
+            version = self.buf.read(1)[0]
             atom["data"]["version"] = version
-            flags = int.from_bytes(self.blob.read(3), "big")
+            flags = int.from_bytes(self.buf.read(3), "big")
             atom["data"]["flags"] = {
                 "raw": flags,
                 "data_offset_present": bool(flags & 1),
@@ -527,105 +476,96 @@ class Mp4Module(module.RuminaterModule):
                 "sample_flags_present": bool(flags & 1024),
                 "sample_composition_time_offsets_present": bool(flags & 2048),
             }
-            atom["data"]["sample_count"] = int.from_bytes(self.blob.read(4), "big")
+            atom["data"]["sample_count"] = int.from_bytes(self.buf.read(4), "big")
         elif typ == "desc":
-            atom["data"]["descriptor"] = self.blob.readunit().hex()
+            atom["data"]["descriptor"] = self.buf.readunit().hex()
         elif typ == "loci":
-            version = self.blob.read(1)[0]
-            atom["data"]["version"] = version
-            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
-            atom["data"]["language_code"] = int.from_bytes(self.blob.read(2), "big")
-            atom["data"]["reserved"] = self.blob.read(2).hex()
-            atom["data"]["longitude"] = int.from_bytes(self.blob.read(4), "big") / 65536
-            atom["data"]["latitude"] = int.from_bytes(self.blob.read(4), "big") / 65536
-            atom["data"]["altitude"] = int.from_bytes(self.blob.read(4), "big") / 65536
-            atom["data"]["planet"] = self.blob.readunit().split(b"\x00")[0].decode("utf-8")
+            self.mp4_version(atom)
+            atom["data"]["language_code"] = int.from_bytes(self.buf.read(2), "big")
+            atom["data"]["reserved"] = self.buf.read(2).hex()
+            atom["data"]["longitude"] = int.from_bytes(self.buf.read(4), "big") / 65536
+            atom["data"]["latitude"] = int.from_bytes(self.buf.read(4), "big") / 65536
+            atom["data"]["altitude"] = int.from_bytes(self.buf.read(4), "big") / 65536
+            atom["data"]["planet"] = self.buf.readunit().split(b"\x00")[0].decode("utf-8")
         elif typ == "hvc1":
-            atom["data"]["reserved1"] = self.blob.read(6).hex()
-            atom["data"]["data_reference_index"] = int.from_bytes(self.blob.read(2), "big")
-            atom["data"]["pre_defined1"] = self.blob.read(2).hex()
-            atom["data"]["reserved2"] = self.blob.read(2).hex()
-            atom["data"]["pre_defined2"] = self.blob.read(12).hex()
-            atom["data"]["width"] = int.from_bytes(self.blob.read(2), "big")
-            atom["data"]["height"] = int.from_bytes(self.blob.read(2), "big")
-            atom["data"]["horizresolution"] = int.from_bytes(self.blob.read(4), "big")
-            atom["data"]["vertresolution"] = int.from_bytes(self.blob.read(4), "big")
-            atom["data"]["reserved3"] = self.blob.read(4).hex()
-            atom["data"]["frame_count"] = int.from_bytes(self.blob.read(2), "big")
-            l = self.blob.read(1)[0]
-            name = self.blob.read(31)
+            atom["data"]["reserved1"] = self.buf.read(6).hex()
+            atom["data"]["data_reference_index"] = int.from_bytes(self.buf.read(2), "big")
+            atom["data"]["pre_defined1"] = self.buf.read(2).hex()
+            atom["data"]["reserved2"] = self.buf.read(2).hex()
+            atom["data"]["pre_defined2"] = self.buf.read(12).hex()
+            atom["data"]["width"] = int.from_bytes(self.buf.read(2), "big")
+            atom["data"]["height"] = int.from_bytes(self.buf.read(2), "big")
+            atom["data"]["horizresolution"] = int.from_bytes(self.buf.read(4), "big")
+            atom["data"]["vertresolution"] = int.from_bytes(self.buf.read(4), "big")
+            atom["data"]["reserved3"] = self.buf.read(4).hex()
+            atom["data"]["frame_count"] = int.from_bytes(self.buf.read(2), "big")
+            l = self.buf.read(1)[0]
+            name = self.buf.read(31)
             atom["data"]["compressorname"] = name[:l].decode("utf-8")
-            atom["data"]["depth"] = int.from_bytes(self.blob.read(2), "big")
-            atom["data"]["pre_defined3"] = self.blob.read(2).hex()
+            atom["data"]["depth"] = int.from_bytes(self.buf.read(2), "big")
+            atom["data"]["pre_defined3"] = self.buf.read(2).hex()
 
             atom["data"]["atoms"] = []
-            while self.blob.unit > 0:
+            while self.buf.unit > 0:
                 atom["data"]["atoms"].append(self.read_atom())
         elif typ == "hvcC":
-            version = self.blob.read(1)[0]
+            version = self.buf.read(1)[0]
             atom["data"]["version"] = version
-            atom["data"]["profile_space,tier_flag,profile_idc"] = self.blob.read(1)[0]
-            atom["data"]["profile_compatibility_flags"] = int.from_bytes(self.blob.read(4), "big")
-            atom["data"]["constraint_indicator_flags"] = int.from_bytes(self.blob.read(6), "big")
-            atom["data"]["level_idc"] = self.blob.read(1)[0]
-            atom["data"]["min_spatial_segmentation_idc"] = int.from_bytes(self.blob.read(2), "big")
-            atom["data"]["parallelismType"] = self.blob.read(1)[0]
-            atom["data"]["chromaFormat"] = self.blob.read(1)[0]
-            atom["data"]["bitDepthLumaMinus8"] = self.blob.read(1)[0]
-            atom["data"]["bitDepthChromaMinus8"] = self.blob.read(1)[0]
-            atom["data"]["avgFrameRate"] = int.from_bytes(self.blob.read(2), "big") / 256
-            atom["data"]["constantFrameRate,numTemporalLayers"] = self.blob.read(1)[0]
-            atom["data"]["numOfArrays"] = self.blob.read(1)[0]
+            atom["data"]["profile_space,tier_flag,profile_idc"] = self.buf.read(1)[0]
+            atom["data"]["profile_compatibility_flags"] = int.from_bytes(self.buf.read(4), "big")
+            atom["data"]["constraint_indicator_flags"] = int.from_bytes(self.buf.read(6), "big")
+            atom["data"]["level_idc"] = self.buf.read(1)[0]
+            atom["data"]["min_spatial_segmentation_idc"] = int.from_bytes(self.buf.read(2), "big")
+            atom["data"]["parallelismType"] = self.buf.read(1)[0]
+            atom["data"]["chromaFormat"] = self.buf.read(1)[0]
+            atom["data"]["bitDepthLumaMinus8"] = self.buf.read(1)[0]
+            atom["data"]["bitDepthChromaMinus8"] = self.buf.read(1)[0]
+            atom["data"]["avgFrameRate"] = int.from_bytes(self.buf.read(2), "big") / 256
+            atom["data"]["constantFrameRate,numTemporalLayers"] = self.buf.read(1)[0]
+            atom["data"]["numOfArrays"] = self.buf.read(1)[0]
 
             atom["data"]["arrays"] = []
             for i in range(0, atom["data"]["numOfArrays"]):
                 array = {}
-                array["array_completeness,reserved,NAL_unit_type"] = self.blob.read(1)[0]
-                array["numNalus"] = int.from_bytes(self.blob.read(2), "big")
+                array["array_completeness,reserved,NAL_unit_type"] = self.buf.read(1)[0]
+                array["numNalus"] = int.from_bytes(self.buf.read(2), "big")
                 array["nalus"] = []
                 for j in range(0, array["numNalus"]):
                     entry = {}
-                    entry["nalUnitLength"] = int.from_bytes(self.blob.read(2), "big")
-                    entry["nalUnit"] = self.blob.read(entry["nalUnitLength"]).hex()
+                    entry["nalUnitLength"] = int.from_bytes(self.buf.read(2), "big")
+                    entry["nalUnit"] = self.buf.read(entry["nalUnitLength"]).hex()
 
                     array["nalus"].append(entry)
 
                 atom["data"]["arrays"].append(array)
         elif typ == "keys":
-            version = self.blob.read(1)[0]
-            atom["data"]["version"] = version
-            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
-
-            entry_count = int.from_bytes(self.blob.read(4), "big")
+            self.mp4_version(atom)
+            entry_count = int.from_bytes(self.buf.read(4), "big")
             atom["data"]["entry_count"] = entry_count
 
             atom["data"]["entries"] = []
             for i in range(0, entry_count):
-                l = int.from_bytes(self.blob.read(4), "big")
-                ns = self.blob.read(4).decode("utf-8")
-                value = self.blob.read(l - 8).decode("utf-8")
+                l = int.from_bytes(self.buf.read(4), "big")
+                ns = self.buf.read(4).decode("utf-8")
+                value = self.buf.read(l - 8).decode("utf-8")
                 atom["data"]["entries"].append({
                     "namespace": ns,
                     "value": value
                 })
-        elif typ[0] == "\x00":
-            pass
         elif typ == "name":
-            version = self.blob.read(1)[0]
-            atom["data"]["version"] = version
-            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
-            atom["data"]["name"] = self.blob.readunit().decode("utf-8")
+            self.mp4_version(atom)
+            atom["data"]["name"] = self.buf.readunit().decode("utf-8")
         elif typ == "titl":
-            version = self.blob.read(1)[0]
-            atom["data"]["version"] = version
-            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
-            atom["data"]["reserved1"] = self.blob.read(2).hex()
-            atom["data"]["title"] = self.blob.readunit()[:-1].decode("utf-8")
+            self.mp4_version(atom)
+            atom["data"]["reserved1"] = self.buf.read(2).hex()
+            atom["data"]["title"] = self.buf.readunit()[:-1].decode("utf-8")
+        elif typ[0] == "\x00" or typ == "mdat":
+            pass
         else:
             atom["unknown"] = True
 
-        self.blob.skipunit()
-        self.blob.popunit()
+        self.buf.skipunit()
+        self.buf.popunit()
 
         return atom
 

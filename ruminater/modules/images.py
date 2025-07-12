@@ -26,7 +26,7 @@ try:
                 return str(val)
 
         def chew(self):
-            img = Image.open(self.blob)
+            img = Image.open(self.buf)
 
             meta = {}
             meta["type"] = "jpeg"
@@ -65,20 +65,20 @@ try:
 
     class PngModule(module.RuminaterModule):
         def chew(self):
-            img = Image.open(self.blob)
+            img = Image.open(self.buf)
 
             meta = {}
             meta["type"] = "png"
             meta["width"], meta["height"] = img.size
             meta["mode"] = img.mode
 
-            self.blob.seek(8)
+            self.buf.seek(8)
             meta["chunks"] = []
             try:
                 while True:
-                    length = int.from_bytes(self.blob.read(4), "big")
-                    chunk_type = self.blob.read(4)
-                    self.blob.read(length + 4)
+                    length = int.from_bytes(self.buf.read(4), "big")
+                    chunk_type = self.buf.read(4)
+                    self.buf.read(length + 4)
 
                     meta["chunks"].append({"chunk-type": chunk_type.decode("utf-8"), "length": length, "critical": chunk_type[0] & 32 == 0, "private": chunk_type[1] & 32 == 1, "conforming": chunk_type[2] & 32 == 0, "safe-to-copy": chunk_type[3] & 32 == 1})
 

@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 
 class DocxModule(module.RuminaterModule):
     def chew(self):
-        zf = zipfile.ZipFile(self.blob, "r")
+        zf = zipfile.ZipFile(self.buf, "r")
         meta = {}
         meta["type"] = "docx"
 
@@ -53,7 +53,7 @@ try:
 
     class PdfModule(module.RuminaterModule):
         def chew(self):
-            doc = PdfReader(self.blob)
+            doc = PdfReader(self.buf)
             meta = {}
             meta["type"] = "pdf"
             meta["metadata"] = dict(doc.metadata)
