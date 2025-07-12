@@ -32,6 +32,7 @@ class Buf(object):
         return data
 
     def skip(self, l):
+        self.unit = max(self.unit - l, 0)
         self.seek(l, 1)
 
     def set_unit(self, l):

@@ -54,7 +54,7 @@ class Mp4Module(module.RuminaterModule):
         self.blob.pushunit()
         self.blob.set_unit(length)
 
-        if typ in ("moov", "trak", "mdia", "minf", "dinf", "stbl", "udta", "ilst", "mvex", "moof", "traf") or (typ[0] == "©" and self.blob.peek(8)[4:8] == b"data"):
+        if typ in ("moov", "trak", "mdia", "minf", "dinf", "stbl", "udta", "ilst", "mvex", "moof", "traf", "gsst", "gstd") or (typ[0] == "©" and self.blob.peek(8)[4:8] == b"data"):
             atom["data"]["atoms"] = []
             while self.blob.unit > 0:
                 atom["data"]["atoms"].append(self.read_atom())
@@ -528,6 +528,99 @@ class Mp4Module(module.RuminaterModule):
                 "sample_composition_time_offsets_present": bool(flags & 2048),
             }
             atom["data"]["sample_count"] = int.from_bytes(self.blob.read(4), "big")
+        elif typ == "desc":
+            atom["data"]["descriptor"] = self.blob.readunit().hex()
+        elif typ == "loci":
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
+            atom["data"]["language_code"] = int.from_bytes(self.blob.read(2), "big")
+            atom["data"]["reserved"] = self.blob.read(2).hex()
+            atom["data"]["longitude"] = int.from_bytes(self.blob.read(4), "big") / 65536
+            atom["data"]["latitude"] = int.from_bytes(self.blob.read(4), "big") / 65536
+            atom["data"]["altitude"] = int.from_bytes(self.blob.read(4), "big") / 65536
+            atom["data"]["planet"] = self.blob.readunit().split(b"\x00")[0].decode("utf-8")
+        elif typ == "hvc1":
+            atom["data"]["reserved1"] = self.blob.read(6).hex()
+            atom["data"]["data_reference_index"] = int.from_bytes(self.blob.read(2), "big")
+            atom["data"]["pre_defined1"] = self.blob.read(2).hex()
+            atom["data"]["reserved2"] = self.blob.read(2).hex()
+            atom["data"]["pre_defined2"] = self.blob.read(12).hex()
+            atom["data"]["width"] = int.from_bytes(self.blob.read(2), "big")
+            atom["data"]["height"] = int.from_bytes(self.blob.read(2), "big")
+            atom["data"]["horizresolution"] = int.from_bytes(self.blob.read(4), "big")
+            atom["data"]["vertresolution"] = int.from_bytes(self.blob.read(4), "big")
+            atom["data"]["reserved3"] = self.blob.read(4).hex()
+            atom["data"]["frame_count"] = int.from_bytes(self.blob.read(2), "big")
+            l = self.blob.read(1)[0]
+            name = self.blob.read(31)
+            atom["data"]["compressorname"] = name[:l].decode("utf-8")
+            atom["data"]["depth"] = int.from_bytes(self.blob.read(2), "big")
+            atom["data"]["pre_defined3"] = self.blob.read(2).hex()
+
+            atom["data"]["atoms"] = []
+            while self.blob.unit > 0:
+                atom["data"]["atoms"].append(self.read_atom())
+        elif typ == "hvcC":
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            atom["data"]["profile_space,tier_flag,profile_idc"] = self.blob.read(1)[0]
+            atom["data"]["profile_compatibility_flags"] = int.from_bytes(self.blob.read(4), "big")
+            atom["data"]["constraint_indicator_flags"] = int.from_bytes(self.blob.read(6), "big")
+            atom["data"]["level_idc"] = self.blob.read(1)[0]
+            atom["data"]["min_spatial_segmentation_idc"] = int.from_bytes(self.blob.read(2), "big")
+            atom["data"]["parallelismType"] = self.blob.read(1)[0]
+            atom["data"]["chromaFormat"] = self.blob.read(1)[0]
+            atom["data"]["bitDepthLumaMinus8"] = self.blob.read(1)[0]
+            atom["data"]["bitDepthChromaMinus8"] = self.blob.read(1)[0]
+            atom["data"]["avgFrameRate"] = int.from_bytes(self.blob.read(2), "big") / 256
+            atom["data"]["constantFrameRate,numTemporalLayers"] = self.blob.read(1)[0]
+            atom["data"]["numOfArrays"] = self.blob.read(1)[0]
+
+            atom["data"]["arrays"] = []
+            for i in range(0, atom["data"]["numOfArrays"]):
+                array = {}
+                array["array_completeness,reserved,NAL_unit_type"] = self.blob.read(1)[0]
+                array["numNalus"] = int.from_bytes(self.blob.read(2), "big")
+                array["nalus"] = []
+                for j in range(0, array["numNalus"]):
+                    entry = {}
+                    entry["nalUnitLength"] = int.from_bytes(self.blob.read(2), "big")
+                    entry["nalUnit"] = self.blob.read(entry["nalUnitLength"]).hex()
+
+                    array["nalus"].append(entry)
+
+                atom["data"]["arrays"].append(array)
+        elif typ == "keys":
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
+
+            entry_count = int.from_bytes(self.blob.read(4), "big")
+            atom["data"]["entry_count"] = entry_count
+
+            atom["data"]["entries"] = []
+            for i in range(0, entry_count):
+                l = int.from_bytes(self.blob.read(4), "big")
+                ns = self.blob.read(4).decode("utf-8")
+                value = self.blob.read(l - 8).decode("utf-8")
+                atom["data"]["entries"].append({
+                    "namespace": ns,
+                    "value": value
+                })
+        elif typ[0] == "\x00":
+            pass
+        elif typ == "name":
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
+            atom["data"]["name"] = self.blob.readunit().decode("utf-8")
+        elif typ == "titl":
+            version = self.blob.read(1)[0]
+            atom["data"]["version"] = version
+            atom["data"]["flags"] = int.from_bytes(self.blob.read(3), "big")
+            atom["data"]["reserved1"] = self.blob.read(2).hex()
+            atom["data"]["title"] = self.blob.readunit()[:-1].decode("utf-8")
         else:
             atom["unknown"] = True
 
