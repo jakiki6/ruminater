@@ -1,3 +1,4 @@
+import zlib
 from . import mappings, chew
 from .. import module
 
@@ -62,33 +63,58 @@ try:
             return meta
 
     mappings["^JPEG.*$"] = JpegModule
-
-    class PngModule(module.RuminaterModule):
-        def chew(self):
-            img = Image.open(self.buf)
-
-            meta = {}
-            meta["type"] = "png"
-            meta["width"], meta["height"] = img.size
-            meta["mode"] = img.mode
-
-            self.buf.seek(8)
-            meta["chunks"] = []
-            try:
-                while True:
-                    length = int.from_bytes(self.buf.read(4), "big")
-                    chunk_type = self.buf.read(4)
-                    self.buf.read(length + 4)
-
-                    meta["chunks"].append({"chunk-type": chunk_type.decode("utf-8"), "length": length, "critical": chunk_type[0] & 32 == 0, "private": chunk_type[1] & 32 == 1, "conforming": chunk_type[2] & 32 == 0, "safe-to-copy": chunk_type[3] & 32 == 1})
-
-                    if chunk_type == b"IEND" and False:
-                        break
-            except:
-                pass
-
-            return meta
-
-    mappings["^PNG.*$"] = PngModule
 except ModuleNotFoundError:
-    print("pillow not found, skipping JPEG and PNG parsing")
+    print("pillow not found, skipping JPEG parsing")
+
+class PngModule(module.RuminaterModule):
+    def chew(self):
+        meta = {}
+        meta["type"] = "png"
+
+        self.buf.seek(8)
+        meta["chunks"] = []
+        while self.buf.available():
+            length = int.from_bytes(self.buf.read(4), "big")
+            self.buf.pushunit()
+            self.buf.setunit(length + 8)
+
+            chunk_type = self.buf.read(4)
+
+            chunk = {
+                "chunk-type": chunk_type.decode("utf-8"),
+                "length": length,
+                "flags": {
+                    "critical": chunk_type[0] & 32 == 0,
+                    "private": chunk_type[1] & 32 == 1,
+                    "conforming": chunk_type[2] & 32 == 0,
+                    "safe-to-copy": chunk_type[3] & 32 == 1
+                },
+            }
+
+            data = self.buf.peek(length + 4)
+            data, crc = data[:-4], data[-4:]
+
+            chunk["crc"] = {
+                "value": crc.hex(),
+                "correct": int.from_bytes(crc, "big") == zlib.crc32(chunk_type + data) & 0xffffffff
+            }
+
+            chunk["data"] = {}
+            match chunk_type:
+                case b"IHDR":
+                    chunk["data"]["width"] = int.from_bytes(self.buf.read(4), "big")
+                    chunk["data"]["height"] = int.from_bytes(self.buf.read(4), "big")
+                    chunk["data"]["bit-depth"] = self.buf.read(1)[0]
+                    chunk["data"]["color-type"] = self.buf.read(1)[0]
+                    chunk["data"]["compression"] = self.buf.read(1)[0]
+                    chunk["data"]["filter-method"] = self.buf.read(1)[0]
+                    chunk["data"]["interlace-method"] = self.buf.read(1)[0]
+
+            meta["chunks"].append(chunk)
+
+            self.buf.skipunit()
+            self.buf.popunit()
+
+        return meta
+
+mappings["^PNG.*$"] = PngModule

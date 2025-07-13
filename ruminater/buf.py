@@ -12,7 +12,7 @@ class Buf(object):
         self._size = self.tell()
         self.seek(pos)
 
-        self.unit = self._size
+        self.unit = (1<<64) - 1
         self._target = self._size
         self._stack = []
 
@@ -26,9 +26,9 @@ class Buf(object):
         return self._size
 
     def peek(self, l):
-        pos = self.tell()
-        data = self.read(l)
-        self.seek(pos)
+        pos = self._file.tell()
+        data = self._file.read(l)
+        self._file.seek(pos)
         return data
 
     def skip(self, l):
