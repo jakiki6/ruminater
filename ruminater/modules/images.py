@@ -3,6 +3,210 @@ from . import chew
 from .. import module, utils
 
 @module.register
+class IPTCIIMModule(module.RuminaterModule):
+    RESOURCE_IDS = {
+        1000: "Number of channels, rows, columns, depth, and mode (obsolete)",
+        1001: "Macintosh print manager print info record",
+        1002: "Macintosh page format information (obsolete)",
+        1003: "Indexed color table (obsolete)",
+        1005: "Resolution info (obsolete)",
+        1006: "Names of alpha channels",
+        1007: "Display info (obsolete)",
+        1008: "Caption string",
+        1009: "Border information",
+        1010: "Background color",
+        1011: "Print flags",
+        1012: "Grayscale/multichannel halftoning info",
+        1013: "Color halftoning info",
+        1014: "Duotone halftoning info",
+        1015: "Grayscale/multichannel transfer function",
+        1016: "Color transfer functions",
+        1017: "Duotone transfer functions",
+        1018: "Duotone image info",
+        1019: "Effective black and white values",
+        1021: "EPS options",
+        1022: "Quick mask info",
+        1024: "Layer state info",
+        1025: "Working path",
+        1026: "Layers group info",
+        1028: "IPTC-NAA record",
+        1029: "Image mode for JPEG",
+        1030: "JPEG quality",
+        1032: "Grid and guides",
+        1033: "Thumbnail (raw RGB)",
+        1034: "Copyright flag",
+        1035: "URL",
+        1036: "Thumbnail (JPEG compressed)",
+        1037: "Global angle",
+        1038: "Color samplers resource (obsolete)",
+        1039: "ICC profile",
+        1040: "Watermark",
+        1041: "ICC untagged profile",
+        1042: "Effects visible",
+        1043: "Spot Halftone",
+        1044: "Document-specific IDs seed number",
+        1045: "Unicode alpha names",
+        1046: "Indexed color table count",
+        1047: "Transparency index",
+        1049: "Global altitude",
+        1050: "Slices",
+        1051: "Workflow URL",
+        1052: "Jump to XPEP",
+        1053: "Alpha identifiers",
+        1054: "URL list",
+        1057: "Version info",
+        1058: "EXIF data",
+        1059: "EXIF data",
+        1060: "XMP metadata",
+        1061: "Caption digest",
+        1062: "Print scale",
+        1064: "Pixel aspect ratio",
+        1065: "Layer comps",
+        1066: "Alternate duotone colors",
+        1067: "Alternate spot colors",
+        1069: "Layer selection ID(s)",
+        1070: "HDR toning information",
+        1071: "Print info",
+        1072: "Layer group(s) enabled ID",
+        1073: "Color samplers resource",
+        1074: "Measurement scale",
+        1075: "Timeline information",
+        1076: "Sheet disclosure",
+        1077: "Display info",
+        1078: "Onion skins",
+        1080: "Count information",
+        1082: "Print information",
+        1083: "Print style",
+        1084: "Macintosh NSPrintInfo",
+        1085: "Windows DEVMODE",
+        1086: "Auto save file path",
+        1087: "Auto save format",
+        1088: "Path selection state",
+        2999: "Name of clipping path",
+        3000: "Origin path info",
+        7000: "Image Ready variables",
+        7001: "Image Ready data sets",
+        7002: "Image Ready default selected state",
+        7003: "Image Ready 7 rollover expanded state",
+        7004: "Image Ready rollover expanded state",
+        7005: "Image Ready save layer settings",
+        7006: "Image Ready version",
+        8000: "Lightroom workflow",
+        10000: "Print flags information"
+    }
+
+    for i in range(2000, 2998):
+        RESOURCE_IDS[i] = "Path information"
+
+    for i in range(4000, 5000):
+        RESOURCE_IDS[i] = "Plug-In resource(s)"
+
+    COLOR_SPACES = {
+       0: "RGB",
+        1: "HSB",
+        2: "CMYK",
+        7: "Lab",
+        8: "Grayscale",
+        9: "Wide CMYK",
+        10: "HSL",
+        11: "HSB (Alt)",
+        12: "Multichannel",
+        13: "Duotone",
+        14: "Lab (Alt)",
+    }
+
+    def identify(buf):
+        return buf.peek(18) == b"Photoshop 3.0\x008BIM"
+
+    def chew(self):
+        meta = {}
+        meta["type"] = "iptc-iim"
+        meta["data"] = {}
+
+        self.buf.skip(14)
+
+        meta["data"]["blocks"] = []
+        while self.buf.available():
+            header = self.buf.read(4) 
+            assert header == b"8BIM", f"Invalid IRB block header: {header}"
+            block = {}
+
+            resource_id = int.from_bytes(self.buf.read(2), "big")
+            block["resource-id"] = self.RESOURCE_IDS.get(resource_id, "Unknown") + f" (0x{hex(resource_id)[2:].zfill(4)})"
+            name_length = self.buf.read(1)[0]
+            block["resource-name"] = self.buf.read(name_length).decode("utf-8")
+            if name_length % 2 == 0:
+                self.buf.skip(1)
+
+            data_length = int.from_bytes(self.buf.read(4), "big")
+            block["data-length"] = data_length
+
+            self.buf.setunit((data_length + 1) & 0xfffffffe)
+
+            block["data"] = {}
+            match resource_id:
+                case 1036:
+                    block["data"]["format"] = int.from_bytes(self.buf.read(4), "big")
+                    block["data"]["width"] = int.from_bytes(self.buf.read(4), "big")
+                    block["data"]["height"] = int.from_bytes(self.buf.read(4), "big")
+                    block["data"]["width-bytes"] = int.from_bytes(self.buf.read(4), "big")
+                    block["data"]["total-size"] = int.from_bytes(self.buf.read(4), "big")
+                    block["data"]["compressed-size"] = int.from_bytes(self.buf.read(4), "big")
+                    block["data"]["bit-depth"] = int.from_bytes(self.buf.read(2), "big")
+                    block["data"]["planes"] = int.from_bytes(self.buf.read(2), "big")
+
+                    block["data"]["image"] = chew(self.buf.read(block["data"]["compressed-size"]))
+                case 1005:
+                    block["data"]["horizontal-dpi"] = int.from_bytes(self.buf.read(4), "big") / 65536
+                    horizontal_unit = int.from_bytes(self.buf.read(2), "big")
+                    block["data"]["horizontal-unit"] = {
+                        "raw": horizontal_unit,
+                        "name":{
+                            1: "inches",
+                            2: "centimeters",
+                            3: "points",
+                            4: "picas",
+                            5: "columns"
+                        }.get(horizontal_unit, "unknown")
+                    }
+                    block["data"]["horizontal-scale"] = int.from_bytes(self.buf.read(2), "big")
+
+                    block["data"]["vertical-dpi"] = int.from_bytes(self.buf.read(4), "big") / 65536
+                    vertical_unit = int.from_bytes(self.buf.read(2), "big")
+                    block["data"]["vertical-unit"] = {
+                        "raw": vertical_unit,
+                        "name":{
+                            1: "Inches",
+                            2: "Centimeters",
+                            3: "Points",
+                            4: "Picas",
+                            5: "Columns"
+                        }.get(vertical_unit, "Unknown")
+                    }
+                    block["data"]["vertical-scale"] = int.from_bytes(self.buf.read(2), "big")
+                case 1010:
+                    color_space = int.from_bytes(self.buf.read(2), "big")
+                    block["data"]["color-space"] = {
+                        "raw": color_space,
+                        "name": self.COLOR_SPACES.get(color_space, "Unknown")
+                    }
+                    block["data"]["components"] = [int.from_bytes(self.buf.read(2), "big") for _ in range(0, 4)]
+                case 1011:
+                    flags = int.from_bytes(self.buf.read(2), "big")
+                    block["data"]["flags"] = {
+                        "raw": flags,
+                        "show-image": bool(flags & 1)
+                    }
+                case _:
+                    block["data"]["unknown"] = True
+
+            meta["data"]["blocks"].append(block)
+            self.buf.skipunit()
+            self.buf.resetunit()
+
+        return meta
+
+@module.register
 class IccProfileModule(module.RuminaterModule):
     def read_tag(self, offset, length):
         tag = {}
@@ -371,6 +575,8 @@ class JpegModule(module.RuminaterModule):
                 chunk["data"]["xmp"] = utils.xml_to_dict(self.buf.readunit().decode("utf-8"))
             elif typ == 0xe2 and self.buf.peek(12) == b"ICC_PROFILE\x00":
                 chunk["data"]["icc-profile"] = chew(self.buf.readunit())["data"]
+            elif typ == 0xed and self.buf.peek(18) == b"Photoshop 3.0\x008BIM":
+                chunk["data"]["iptc"] = chew(self.buf.readunit())["data"]
             elif typ == 0xee and self.buf.peek(5) == b"Adobe":
                 chunk["data"]["identifier"] = self.buf.read(5).decode("utf-8")
                 chunk["data"]["pre-defined"] = self.buf.read(1).hex()
