@@ -1,8 +1,7 @@
 import uuid
 from datetime import datetime, timezone, timedelta
 from . import chew
-from .. import module
-
+from .. import module, utils
 
 def mp4_time_to_iso(mp4_time):
     mp4_epoch = datetime(1904, 1, 1, tzinfo=timezone.utc)
@@ -92,6 +91,10 @@ class Mp4Module(module.RuminaterModule):
         elif typ == "uuid":
             atom["data"]["uuid"] = str(uuid.UUID(bytes=self.buf.read(16)))
             atom["data"]["user-data"] = self.buf.readunit().decode("utf-8")
+            try:
+                atom["data"]["user-data"] = utils.xml_to_dict(atom["data"]["user-data"])
+            except:
+                pass
         elif typ == "mvhd":
             version = self.read_version(atom)
 
