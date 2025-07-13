@@ -1,6 +1,161 @@
-import zlib
+import zlib, datetime
 from . import chew
 from .. import module
+
+@module.register
+class IccProfileModule(module.RuminaterModule):
+    def read_tag(self, offset, length):
+        tag = {}
+
+        bak = self.buf.backup()
+        self.buf.seek(offset)
+        typ = self.buf.read(4).decode("utf-8")
+        self.buf.skip(4)
+        self.buf.setunit(length - 8)
+
+        tag["data"] = {}
+        tag["data"]["type"] = typ
+        match typ:
+            case "text":
+                tag["data"]["string"] = self.buf.readunit()[:-1].decode("ascii")
+            case "desc":
+                l = int.from_bytes(self.buf.read(4), "big")
+                tag["data"]["string"] = self.buf.read(l - 1).decode("ascii")
+            case "XYZ ":
+                tag["data"]["x"] = int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                tag["data"]["y"] = int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                tag["data"]["z"] = int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+            case "curv":
+                tag["data"]["curve-entry-count"] = int.from_bytes(self.buf.read(4), "big")
+            case "view":
+                tag["data"]["illuminant"] = {
+                    "x": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536,
+                    "y": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536,
+                    "z": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                }
+                tag["data"]["surround"] = {
+                    "x": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536,
+                    "y": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536,
+                    "z": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                }
+                illuminant_type = int.from_bytes(self.buf.read(4), "big")
+                tag["data"]["illuminant-type"] = {
+                    "raw": illuminant_type,
+                    "name": {
+                        0: "Unknown",
+                        1: "D50",
+                        2: "D65",
+                        3: "D93",
+                        4: "F2",
+                        5: "D55",
+                        6: "A",
+                        7: "Equi-Power (E)",
+                        8: "F8"
+                    }.get(illuminant_type, "Unknown")
+                }
+            case "meas":
+                standard_observer = int.from_bytes(self.buf.read(4), "big")
+                tag["data"]["standard-observer"] = {
+                    "raw": standard_observer,
+                    "name": {
+                        0: "Unknown",
+                        1: "CIE 1931 standard colorimetric observer",
+                        2: "CIE 1964 standard colorimetric observer"
+                    }.get(standard_observer, "Unknown")
+                }
+                tag["data"]["measurement-backing"] = { 
+                    "x": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536,
+                    "y": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536,
+                    "z": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                }
+                measurement_geometry = int.from_bytes(self.buf.read(4), "big")
+                tag["data"]["measurement-geometry"] = {
+                    "raw": measurement_geometry,
+                    "name": {
+                        0: "Unknown",
+                        1: "0°:45° or 45°:0°",
+                        2: "0°:d or d:0°"
+                    }.get(measurement_geometry, "Unknown")
+                }
+                tag["data"]["measurement-flare"] = int.from_bytes(self.buf.read(4), "big") / 65536
+                standard_illuminant = int.from_bytes(self.buf.read(4), "big")
+                tag["data"]["standard-illuminant"] = {
+                    "raw": standard_illuminant,
+                    "name": {
+                        0: "Unknown",
+                        1: "D50",
+                        2: "D65",
+                        3: "D93",
+                        4: "F2",
+                        5: "D55",
+                        6: "A",
+                        7: "Equi-Power (E)",
+                        8: "F8"
+                    }.get(standard_illuminant, "Unknown")
+                }
+            case "sig ":
+                tag["data"]["signature"] = self.buf.read(4).decode("utf-8")
+            case _:
+                tag["data"]["unkown"] = True
+
+        self.buf.restore(bak)
+
+        return tag
+
+    def identify(buf):
+        return buf.peek(12) == b"ICC_PROFILE\x00"
+
+    def chew(self):
+        meta = {}
+        meta["type"] = "icc-profile"
+        meta["data"] = {}
+
+        self.buf.skip(14)
+        l = int.from_bytes(self.buf.read(4), "big")
+        meta["data"]["length"] = l
+        self.buf.setunit(l)
+
+        meta["data"]["cmm-type"] = self.buf.read(4).decode("utf-8")
+        meta["data"]["version"] = f"{self.buf.read(1)[0]}.{self.buf.read(3).hex().rstrip('0')}"
+        meta["data"]["class"] = self.buf.read(4).decode("utf-8")
+        meta["data"]["color-space"] = self.buf.read(4).decode("utf-8")
+        meta["data"]["profile-connection-space"] = self.buf.read(4).decode("utf-8")
+        meta["data"]["date"] = datetime.datetime(*[int.from_bytes(self.buf.read(2), "big") for _ in range(0, 6)]).isoformat()
+        meta["data"]["file-signature"] = self.buf.read(4).decode("utf-8")
+        meta["data"]["platform"] = self.buf.read(4).decode("utf-8")
+        meta["data"]["flags"] = self.buf.read(4).hex()
+        meta["data"]["device-manufacturer"] = self.buf.read(4).decode("utf-8")
+        meta["data"]["device-model"] = self.buf.read(4).decode("utf-8")
+        meta["data"]["device-attributes"] = self.buf.read(8).hex()
+        render_intent = int.from_bytes(self.buf.read(4), "big")
+        meta["data"]["render-intent"] = {
+            "raw": render_intent,
+            "name": {
+                0: "Perceptual",
+                1: "Relative Colorimetric",
+                2: "Saturation",
+                3: "Absolute Colorimetric"
+            }.get(render_intent, "Unknown")
+        }
+        meta["data"]["pcs-illuminant"] = [int.from_bytes(self.buf.read(4), "big", signed=True) / 65536 for _ in range(0, 3)]
+        meta["data"]["profile-creator"] = self.buf.read(4).decode("utf-8")
+        meta["data"]["profile-id"] = self.buf.read(4).hex()
+        meta["data"]["reserved"] = self.buf.read(40).hex()
+
+        tag_count = int.from_bytes(self.buf.read(4), "big")
+        meta["data"]["tag-count"] = tag_count
+        meta["data"]["tags"] = []
+        for i in range(0, tag_count):
+            tag = {}
+            tag["name"] = self.buf.read(4).decode("utf-8")
+            tag["offset"] = int.from_bytes(self.buf.read(4), "big")
+            tag["length"] = int.from_bytes(self.buf.read(4), "big")
+
+            tag |= self.read_tag(tag["offset"] + 14, tag["length"])
+
+            meta["data"]["tags"].append(tag)
+
+        return meta
 
 @module.register
 class JpegModule(module.RuminaterModule):
@@ -128,7 +283,6 @@ class JpegModule(module.RuminaterModule):
         while self.buf.available():
             chunk = {}
 
-            print(hex(self.buf.tell()))
             assert self.buf.read(1)[0] == 0xff, "wrong marker prefix"
             typ = self.buf.read(1)[0]
             chunk["type"] = self.MARKER_NAME.get(typ, "UNK") + f" (0x{hex(typ)[2:].zfill(2)})"
@@ -153,7 +307,7 @@ class JpegModule(module.RuminaterModule):
                 chunk["data"]["namespace"] = ns.decode("utf-8")
                 chunk["data"]["xmp"] = self.buf.readunit().decode("utf-8")
             elif typ == 0xe2 and self.buf.peek(12) == b"ICC_PROFILE\x00":
-                chunk["data"]["icc-profile"] = chew(self.buf.readunit())
+                chunk["data"]["icc-profile"] = chew(self.buf.readunit())["data"]
             elif typ == 0xee and self.buf.peek(5) == b"Adobe":
                 chunk["data"]["identifier"] = self.buf.read(5).decode("utf-8")
                 chunk["data"]["pre-defined"] = self.buf.read(1).hex()

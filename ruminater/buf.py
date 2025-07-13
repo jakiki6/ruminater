@@ -65,10 +65,11 @@ class Buf(object):
         self._target = t
 
     def backup(self):
-        return (self.unit, self._target, self._stack)
+        return (self.unit, self._target, self._stack, self._file.tell())
 
     def restore(self, bak):
-        self.unit, self._target, self._stack = bak
+        self.unit, self._target, self._stack, offset = bak
+        self._file.seek(offset)
 
     def readline(self):
         line = self._file.readline()
