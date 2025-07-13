@@ -12,9 +12,10 @@ class Buf(object):
         self._size = self.tell()
         self.seek(pos)
 
-        self.unit = (1<<64) - 1
+        self.resetunit()
         self._target = self._size
         self._stack = []
+        self._backup = []
 
     def available(self):
         return self._size - self.tell()
@@ -45,6 +46,9 @@ class Buf(object):
 
     def readunit(self):
         return self.read(self.unit)
+
+    def resetunit(self):
+        self.unit = (1<<64) - 1
 
     def read(self, count=None):
         if count == None:
@@ -85,10 +89,10 @@ class Buf(object):
         return getattr(self._file, name)
 
     def __enter__(self):
-        return self
+        self._backup.append(self.backup())
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        return self._file.__exit__(exc_type, exc_val, exc_tb)
+        self.restore(self._backup.pop())
 
     def __iter__(self):
         return iter(self._file)

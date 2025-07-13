@@ -7,98 +7,161 @@ class IccProfileModule(module.RuminaterModule):
     def read_tag(self, offset, length):
         tag = {}
 
-        bak = self.buf.backup()
-        self.buf.seek(offset)
-        typ = self.buf.read(4).decode("utf-8")
-        self.buf.skip(4)
-        self.buf.setunit(length - 8)
+        with self.buf:
+            self.buf.seek(offset)
+            typ = self.buf.read(4).decode("utf-8")
+            self.buf.skip(4)
+            self.buf.setunit(length - 8)
 
-        tag["data"] = {}
-        tag["data"]["type"] = typ
-        match typ:
-            case "text":
-                tag["data"]["string"] = self.buf.readunit()[:-1].decode("ascii")
-            case "desc":
-                l = int.from_bytes(self.buf.read(4), "big")
-                tag["data"]["string"] = self.buf.read(l - 1).decode("ascii")
-            case "XYZ ":
-                tag["data"]["x"] = int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
-                tag["data"]["y"] = int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
-                tag["data"]["z"] = int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
-            case "curv":
-                tag["data"]["curve-entry-count"] = int.from_bytes(self.buf.read(4), "big")
-            case "view":
-                tag["data"]["illuminant"] = {
-                    "x": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536,
-                    "y": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536,
-                    "z": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
-                }
-                tag["data"]["surround"] = {
-                    "x": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536,
-                    "y": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536,
-                    "z": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
-                }
-                illuminant_type = int.from_bytes(self.buf.read(4), "big")
-                tag["data"]["illuminant-type"] = {
-                    "raw": illuminant_type,
-                    "name": {
-                        0: "Unknown",
-                        1: "D50",
-                        2: "D65",
-                        3: "D93",
-                        4: "F2",
-                        5: "D55",
-                        6: "A",
-                        7: "Equi-Power (E)",
-                        8: "F8"
-                    }.get(illuminant_type, "Unknown")
-                }
-            case "meas":
-                standard_observer = int.from_bytes(self.buf.read(4), "big")
-                tag["data"]["standard-observer"] = {
-                    "raw": standard_observer,
-                    "name": {
-                        0: "Unknown",
-                        1: "CIE 1931 standard colorimetric observer",
-                        2: "CIE 1964 standard colorimetric observer"
-                    }.get(standard_observer, "Unknown")
-                }
-                tag["data"]["measurement-backing"] = { 
-                    "x": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536,
-                    "y": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536,
-                    "z": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
-                }
-                measurement_geometry = int.from_bytes(self.buf.read(4), "big")
-                tag["data"]["measurement-geometry"] = {
-                    "raw": measurement_geometry,
-                    "name": {
-                        0: "Unknown",
-                        1: "0°:45° or 45°:0°",
-                        2: "0°:d or d:0°"
-                    }.get(measurement_geometry, "Unknown")
-                }
-                tag["data"]["measurement-flare"] = int.from_bytes(self.buf.read(4), "big") / 65536
-                standard_illuminant = int.from_bytes(self.buf.read(4), "big")
-                tag["data"]["standard-illuminant"] = {
-                    "raw": standard_illuminant,
-                    "name": {
-                        0: "Unknown",
-                        1: "D50",
-                        2: "D65",
-                        3: "D93",
-                        4: "F2",
-                        5: "D55",
-                        6: "A",
-                        7: "Equi-Power (E)",
-                        8: "F8"
-                    }.get(standard_illuminant, "Unknown")
-                }
-            case "sig ":
-                tag["data"]["signature"] = self.buf.read(4).decode("utf-8")
-            case _:
-                tag["data"]["unkown"] = True
+            tag["data"] = {}
+            tag["data"]["type"] = typ
+            match typ:
+                case "text":
+                    tag["data"]["string"] = self.buf.readunit()[:-1].decode("ascii")
+                case "desc":
+                    l = int.from_bytes(self.buf.read(4), "big")
+                    tag["data"]["string"] = self.buf.read(l - 1).decode("ascii")
+                case "XYZ ":
+                    tag["data"]["x"] = int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                    tag["data"]["y"] = int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                    tag["data"]["z"] = int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                case "curv":
+                    tag["data"]["curve-entry-count"] = int.from_bytes(self.buf.read(4), "big")
+                case "view":
+                    tag["data"]["illuminant"] = {
+                        "x": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536,
+                        "y": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536,
+                        "z": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                    }
+                    tag["data"]["surround"] = {
+                        "x": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536,
+                        "y": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536,
+                        "z": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                    }
+                    illuminant_type = int.from_bytes(self.buf.read(4), "big")
+                    tag["data"]["illuminant-type"] = {
+                        "raw": illuminant_type,
+                        "name": {
+                            0: "Unknown",
+                            1: "D50",
+                            2: "D65",
+                            3: "D93",
+                            4: "F2",
+                            5: "D55",
+                            6: "A",
+                            7: "Equi-Power (E)",
+                            8: "F8"
+                        }.get(illuminant_type, "Unknown")
+                    }
+                case "meas":
+                    standard_observer = int.from_bytes(self.buf.read(4), "big")
+                    tag["data"]["standard-observer"] = {
+                        "raw": standard_observer,
+                        "name": {
+                            0: "Unknown",
+                            1: "CIE 1931 standard colorimetric observer",
+                            2: "CIE 1964 standard colorimetric observer"
+                        }.get(standard_observer, "Unknown")
+                    }   
+                    tag["data"]["measurement-backing"] = { 
+                        "x": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536,
+                        "y": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536,
+                        "z": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                    }
+                    measurement_geometry = int.from_bytes(self.buf.read(4), "big")
+                    tag["data"]["measurement-geometry"] = {
+                        "raw": measurement_geometry,
+                        "name": {
+                            0: "Unknown",
+                            1: "0°:45° or 45°:0°",
+                            2: "0°:d or d:0°"
+                        }.get(measurement_geometry, "Unknown")
+                    }
+                    tag["data"]["measurement-flare"] = int.from_bytes(self.buf.read(4), "big") / 65536
+                    standard_illuminant = int.from_bytes(self.buf.read(4), "big")
+                    tag["data"]["standard-illuminant"] = {
+                        "raw": standard_illuminant,
+                        "name": {
+                            0: "Unknown",
+                            1: "D50",
+                            2: "D65",
+                            3: "D93",
+                            4: "F2",
+                            5: "D55",
+                            6: "A",
+                            7: "Equi-Power (E)",
+                            8: "F8"
+                        }.get(standard_illuminant, "Unknown")
+                    }
+                case "sig ":
+                    tag["data"]["signature"] = self.buf.read(4).decode("utf-8")
+                case "mluc":
+                    record_count = int.from_bytes(self.buf.read(4), "big")
+                    tag["data"]["record-count"] = record_count
+                    record_size = int.from_bytes(self.buf.read(4), "big")
+                    tag["data"]["record-size"] = record_size
 
-        self.buf.restore(bak)
+                    tag["data"]["records"] = []
+                    for i in range(0, record_count):
+                        record = {}
+                        record["language-code"] = self.buf.read(2).decode("utf-8")
+                        record["country-code"] = self.buf.read(2).decode("utf-8")
+                        record["length"] = int.from_bytes(self.buf.read(4), "big")
+                        record["offset"] = int.from_bytes(self.buf.read(4), "big")
+
+                        with self.buf:
+                            self.buf.resetunit()
+                            self.buf.seek(record["offset"] + offset)
+                            record["text"] = self.buf.read(record["length"]).decode("utf-16be")
+
+                        tag["data"]["records"].append(record)
+                case "para":
+                    function_type = int.from_bytes(self.buf.read(2), "big")
+                    tag["data"]["function-type"] = function_type
+                    self.buf.skip(2)
+
+                    tag["data"]["params"] = {}
+                    g = int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                    tag["data"]["params"]["g"] = g
+                    if function_type > 0:
+                        a = int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                        tag["data"]["params"]["a"] = a
+                        b = int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                        tag["data"]["params"]["b"] = b
+                    if function_type > 1:
+                        c = int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                        tag["data"]["params"]["c"] = c
+                    if function_type > 2:
+                        d = int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                        tag["data"]["params"]["d"] = d
+                    if function_type > 3:
+                        e = int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                        tag["data"]["params"]["e"] = e
+                        f = int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                        tag["data"]["params"]["f"] = f
+
+                    tag["data"]["formula"] = {}
+                    match function_type:
+                        case 0:
+                            tag["data"]["formula"][f"X >= {-b / a}"] = f"Y = X ^ {g}"
+                            tag["data"]["formula"][f"X < {-b / a}"] = f"Y = X ^ {g}"
+                        case 1:
+                            tag["data"]["formula"][f"X >= {-b / a}"] = f"Y = ({a} * X + {b}) ^ {g}"
+                            tag["data"]["formula"][f"X < {-b / a}"] = f"Y = 0"
+                        case 2:
+                            tag["data"]["formula"][f"X >= {d}"] = f"Y = ({a} * X + {b}) ^ {g} + {c}"
+                            tag["data"]["formula"][f"X < {-b / a}"] = f"Y = {c}"
+                        case 3:
+                            tag["data"]["formula"][f"X >= {d}"] = f"Y = ({a} * X + {b}) ^ {g}"
+                            tag["data"]["formula"][f"X < {-b / a}"] = f"Y = {c} * X"
+                        case 4:
+                            tag["data"]["formula"][f"X >= {d}"] = f"Y = ({a} * X + {b}) ^ {g} + {c}"
+                            tag["data"]["formula"][f"X < {-b / a}"] = f"Y = {c} * X + {f}"
+                        case _:
+                            tag["data"]["formula"][f"X >= ?"] = f"Y = ?"
+                            tag["data"]["formula"][f"X < ?"] = f"Y = ?"
+                case _:
+                    tag["data"]["unkown"] = True
 
         return tag
 
