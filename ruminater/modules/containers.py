@@ -1,9 +1,13 @@
-from . import mappings, chew
+from . import chew
 from .. import module
 
 import zipfile
 
+@module.register
 class ZipModule(module.RuminaterModule):
+    def identify(buf):
+        return buf.peek(4) == b"\x50\x4b\x03\x04"
+
     def chew(self):
         zf = zipfile.ZipFile(self.buf, "r")
 
@@ -29,5 +33,3 @@ class ZipModule(module.RuminaterModule):
             files.append(file)
 
         return {"type": "zip", "comment": zf.comment.decode("utf-8"), "files": files}
-
-mappings["^Zip archive data.*$"] = ZipModule

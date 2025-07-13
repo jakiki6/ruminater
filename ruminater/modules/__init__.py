@@ -1,24 +1,21 @@
-import magic, json, hashlib, re
+import json, hashlib, re
 from .. import module
 from ..buf import *
-
-mappings = {}
 
 class EntryModule(module.RuminaterModule):
     def chew(self):
         meta = {}
 
-        data_type = magic.from_buffer(self.buf.peek(65536))
         meta["length"] = self.buf.size()
 
         matched = False
-        for k, v in mappings.items():
-            if re.match(k, data_type):
-                meta |= v(self.buf).chew()
+        for m in module.modules:
+            if m.identify(self.buf):
+                meta |= m(self.buf).chew()
                 matched = True
 
         if not matched:
-            meta |= {"type": "blob", "libmagic-type": data_type}
+            meta |= {"type": "unknown"}
 
         return meta
 
