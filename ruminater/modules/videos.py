@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone, timedelta
-from . import mappings, chew
+from . import chew
 from .. import module
 
 
@@ -18,7 +18,11 @@ def mp4_decode_mdhd_language(lang_bytes):
 
     return chr(c1) + chr(c2) + chr(c3)
 
+@module.register
 class Mp4Module(module.RuminaterModule):
+    def identify(buf):
+        return buf.peek(8)[4:] == b"ftyp"
+
     def chew(self):
         file = {}
 
@@ -683,5 +687,3 @@ class Mp4Module(module.RuminaterModule):
         match stream_type:
             case "avc1":
                 self.parse_mdat_avc1(atoms)
-
-mappings["^ISO Media.*$"] = Mp4Module

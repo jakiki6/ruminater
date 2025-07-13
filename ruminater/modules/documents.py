@@ -1,4 +1,4 @@
-from . import mappings, chew
+from . import chew
 from .. import module
 from ..buf import Buf
 
@@ -7,7 +7,11 @@ import xml.etree.ElementTree as ET
 import re
 from io import BufferedReader
 
+@module.register
 class DocxModule(module.RuminaterModule):
+    def identify(buf):
+        return False # TODO
+
     def chew(self):
         zf = zipfile.ZipFile(self.buf, "r")
         meta = {}
@@ -49,12 +53,13 @@ class DocxModule(module.RuminaterModule):
 
         return meta
 
-mappings["^Microsoft Word.*$"] = DocxModule
-
+@module.register
 class PdfModule(module.RuminaterModule):
     obj_regex = re.compile(r"^(\d+)\s+(\d+)\s+obj.*$")
     TOKEN_PATTERN = re.compile(r"( << | >> | \[ | \] | /[^\s<>/\[\]()]+ | \d+\s+\d+\s+R | \d+\.\d+ | \d+ | \( (?: [^\\\)] | \\ . )* \) | <[0-9A-Fa-f]*> | true | false | null )", re.VERBOSE | re.DOTALL)
 
+    def identify(buf):
+        return buf.peek(5) == b"%PDF-"
 
     def chew(self):
         self.buf = Buf(BufferedReader(self.buf))
@@ -207,5 +212,3 @@ class PdfModule(module.RuminaterModule):
             return token
         else:
             raise ValueError(f"Unknown token: {token}")
-
-mappings["^PDF document.*$"] = PdfModule

@@ -1,7 +1,8 @@
 import zlib
-from . import mappings, chew
+from . import chew
 from .. import module
 
+@module.register
 class JpegModule(module.RuminaterModule):
     HAS_PAYLOAD = [
         0xc0,  # SOF0: Baseline DCT
@@ -116,6 +117,9 @@ class JpegModule(module.RuminaterModule):
         0x01: "TEM",
     }
 
+    def identify(buf):
+        return buf.peek(3) == b"\xff\xd8\xff"
+
     def chew(self):
         meta = {}
         meta["type"] = "jpeg"
@@ -171,9 +175,11 @@ class JpegModule(module.RuminaterModule):
 
         return meta
 
-mappings["^JPEG.*$"] = JpegModule
-
+@module.register
 class PngModule(module.RuminaterModule):
+    def identify(buf):
+        return buf.peek(8) == b"\x89PNG\r\n\x1a\n"
+
     def chew(self):
         meta = {}
         meta["type"] = "png"
@@ -223,5 +229,3 @@ class PngModule(module.RuminaterModule):
             self.buf.popunit()
 
         return meta
-
-mappings["^PNG.*$"] = PngModule
