@@ -1,6 +1,6 @@
 import zlib, datetime
 from . import chew
-from .. import module
+from .. import module, utils
 
 @module.register
 class IccProfileModule(module.RuminaterModule):
@@ -305,7 +305,7 @@ class JpegModule(module.RuminaterModule):
                     ns += self.buf.read(1)
                 self.buf.skip(1)
                 chunk["data"]["namespace"] = ns.decode("utf-8")
-                chunk["data"]["xmp"] = self.buf.readunit().decode("utf-8")
+                chunk["data"]["xmp"] = utils.xml_to_dict(self.buf.readunit().decode("utf-8"))
             elif typ == 0xe2 and self.buf.peek(12) == b"ICC_PROFILE\x00":
                 chunk["data"]["icc-profile"] = chew(self.buf.readunit())["data"]
             elif typ == 0xee and self.buf.peek(5) == b"Adobe":
