@@ -1,4 +1,4 @@
-import io
+import io, struct
 
 class Buf(object):
     def __init__(self, source):
@@ -83,6 +83,174 @@ class Buf(object):
             line = line[:-2] + b"\n"
 
         return line
+
+    def ru8(self):
+        return int.from_bytes(self.read(1), "big")
+
+    def ru16(self):
+        return int.from_bytes(self.read(2), "big")
+
+    def ru32(self):
+        return int.from_bytes(self.read(4), "big")
+
+    def ru64(self):
+        return int.from_bytes(self.read(8), "big")
+
+    def ri8(self):
+        return int.from_bytes(self.read(1), "big", signed=True)
+
+    def ri16(self):
+        return int.from_bytes(self.read(2), "big", signed=True)
+
+    def ri32(self):
+        return int.from_bytes(self.read(4), "big", signed=True)
+
+    def ri64(self):
+        return int.from_bytes(self.read(8), "big", signed=True)
+
+    def ru8l(self):
+        return int.from_bytes(self.read(1), "little")
+
+    def ru16l(self):
+        return int.from_bytes(self.read(2), "little")
+
+    def ru32l(self):
+        return int.from_bytes(self.read(4), "little")
+
+    def ru64l(self):
+        return int.from_bytes(self.read(8), "little")
+
+    def ri8l(self):
+        return int.from_bytes(self.read(1), "little", signed=True)
+
+    def ri16l(self):
+        return int.from_bytes(self.read(2), "little", signed=True)
+
+    def ri32l(self):
+        return int.from_bytes(self.read(4), "little", signed=True)
+
+    def ri64l(self):
+        return int.from_bytes(self.read(8), "little", signed=True)
+
+    def rf32(self):
+        return struct.unpack(">f", self.read(4))
+
+    def rf64(self):
+        return struct.unpack(">d", self.read(8))
+
+    def rf32l(self):
+        return struct.unpack("<f", self.read(4))
+
+    def rf64l(self):
+        return struct.unpack("<d", self.read(8))
+
+    def rfp16(self):
+        return self.ru16() / 256
+
+    def rfp32(self):
+        return self.ru32l() / 65536
+
+    def rsfp16(self):
+        return self.ri16l() / 256
+
+    def rsfp32(self):
+        return self.ri32l() / 65536
+
+    def rfp16l(self):
+        return self.ru16l() / 256
+
+    def rfp32l(self):
+        return self.ru32l() / 65536
+
+    def rsfp16l(self):
+        return self.ri16l() / 256
+
+    def rsfp32l(self):
+        return self.ri32l() / 65536
+
+    def pu8(self):
+        return int.from_bytes(self.peek(1), "big")
+
+    def pu16(self):
+        return int.from_bytes(self.peek(2), "big")
+
+    def pu32(self):
+        return int.from_bytes(self.peek(4), "big")
+
+    def pu64(self):
+        return int.from_bytes(self.peek(8), "big")
+
+    def pi8(self):
+        return int.from_bytes(self.peek(1), "big", signed=True)
+
+    def pi16(self):
+        return int.from_bytes(self.peek(2), "big", signed=True)
+
+    def pi32(self):
+        return int.from_bytes(self.peek(4), "big", signed=True)
+
+    def pi64(self):
+        return int.from_bytes(self.peek(8), "big", signed=True)
+
+    def pu8l(self):
+        return int.from_bytes(self.peek(1), "little")
+
+    def pu16l(self):
+        return int.from_bytes(self.peek(2), "little")
+
+    def pu32l(self):
+        return int.from_bytes(self.peek(4), "little")
+
+    def pu64l(self):
+        return int.from_bytes(self.peek(8), "little")
+
+    def pi8l(self):
+        return int.from_bytes(self.peek(1), "little", signed=True)
+
+    def pi16l(self):
+        return int.from_bytes(self.peek(2), "little", signed=True)
+
+    def pi32l(self):
+        return int.from_bytes(self.peek(4), "little", signed=True)
+
+    def pi64l(self):
+        return int.from_bytes(self.peek(8), "little", signed=True)
+
+    def pf32(self):
+        return struct.unpack(">f", self.peek(4))
+
+    def pf64(self):
+        return struct.unpack(">d", self.peek(8))
+
+    def pf32l(self):
+        return struct.unpack("<f", self.peek(4))
+
+    def pf64l(self):
+        return struct.unpack("<d", self.peek(8))
+
+    def pfp16(self):
+        return self.ru16() / 256
+
+    def pfp32(self):
+        return self.ru32l() / 65536
+
+    def psfp16(self):
+        return self.ri16l() / 256
+
+    def psfp32(self):
+        return self.ri32l() / 65536
+
+    def pfp16l(self):
+        return self.ru16l() / 256
+
+    def pfp32l(self):
+        return self.ru32l() / 65536
+
+    def psfp16l(self):
+        return self.ri16l() / 256
+
+    def psfp32l(self):
+        return self.ri32l() / 65536
 
     def __getattr__(self, name):
         # Delegate everything else to the underlying file
