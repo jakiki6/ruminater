@@ -197,6 +197,12 @@ class IPTCIIMModule(module.RuminaterModule):
                         "raw": flags,
                         "show-image": bool(flags & 1)
                     }
+                case 1037:
+                    block["data"]["angle"] = self.buf.ru32()
+                case 1044:
+                    block["data"]["seed"] = self.buf.rh(4)
+                case 1049:
+                    block["data"]["altitude"] = self.buf.ru32()
                 case _:
                     block["data"]["unknown"] = True
 
