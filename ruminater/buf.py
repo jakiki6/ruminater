@@ -252,6 +252,12 @@ class Buf(object):
     def psfp32l(self):
         return self.ri32l() / 65536
 
+    def rh(self, l):
+        return self.read(l).hex()
+
+    def ph(self, l):
+        return self.peek(l).hex()
+
     def __getattr__(self, name):
         # Delegate everything else to the underlying file
         return getattr(self._file, name)
