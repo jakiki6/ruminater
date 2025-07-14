@@ -571,7 +571,24 @@ class JPEGModule(module.RuminantModule):
             chunk["length"] = l
 
             chunk["data"] = {}
-            if typ == 0xe1 and self.buf.peek(6) == b"Exif\x00\x00":
+            if typ == 0xe0 and self.buf.peek(5) == b"JFIF\x00":
+                self.buf.skip(5)
+                chunk["data"]["version"] = str(self.buf.ru8()) + "." + str(self.buf.ru8())
+                units = self.buf.ru8()
+                chunk["data"]["units"] = {
+                    "raw": units,
+                    "name": {
+                        0: "No units",
+                        1: "Pixels per inch",
+                        2: "Pixels per centimeter"
+                    }.get(units, "Unknown")
+                }
+                chunk["data"]["horizontal-pixel-density"] = self.buf.ru16()
+                chunk["data"]["vertical-pixel-density"] = self.buf.ru16()
+                chunk["data"]["thumbnail-width"] = self.buf.ru8()
+                chunk["data"]["thumbnail-height"] = self.buf.ru8()
+                chunk["data"]["thumbnail-data-length"] = self.buf.unit
+            elif typ == 0xe1 and self.buf.peek(6) == b"Exif\x00\x00":
                 self.buf.skip(6)
                 chunk["data"]["tiff"] = chew(self.buf.readunit())
             elif typ == 0xe1 and self.buf.peek(4) == b"http":
