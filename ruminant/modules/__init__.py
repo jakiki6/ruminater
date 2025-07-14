@@ -2,7 +2,7 @@ import json, hashlib, re
 from .. import module
 from ..buf import *
 
-class EntryModule(module.RuminaterModule):
+class EntryModule(module.RuminantModule):
     def chew(self):
         meta = {}
 

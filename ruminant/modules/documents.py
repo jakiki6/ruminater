@@ -8,7 +8,7 @@ import re
 from io import BufferedReader
 
 @module.register
-class DocxModule(module.RuminaterModule):
+class DocxModule(module.RuminantModule):
     def identify(buf):
         return False # TODO
 
@@ -54,7 +54,7 @@ class DocxModule(module.RuminaterModule):
         return meta
 
 @module.register
-class PdfModule(module.RuminaterModule):
+class PdfModule(module.RuminantModule):
     obj_regex = re.compile(r"^(\d+)\s+(\d+)\s+obj.*$")
     TOKEN_PATTERN = re.compile(r"( << | >> | \[ | \] | /[^\s<>/\[\]()]+ | \d+\s+\d+\s+R | \d+\.\d+ | \d+ | \( (?: [^\\\)] | \\ . )* \) | <[0-9A-Fa-f]*> | true | false | null )", re.VERBOSE | re.DOTALL)
 
