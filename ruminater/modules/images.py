@@ -676,6 +676,8 @@ class PNGModule(module.RuminaterModule):
                     chunk["data"]["compression"] = self.buf.ru8()
                     chunk["data"]["filter-method"] = self.buf.ru8()
                     chunk["data"]["interlace-method"] = self.buf.ru8()
+                case b"eXIf":
+                    chunk["data"]["tiff"] = chew(self.buf.read(length))
 
             meta["chunks"].append(chunk)
 
