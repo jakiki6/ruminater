@@ -3,7 +3,7 @@ from . import chew
 from .. import module, utils
 
 @module.register
-class IPTCIIMModule(module.RuminaterModule):
+class IPTCIIMModule(module.RuminantModule):
     RESOURCE_IDS = {
         1000: "Number of channels, rows, columns, depth, and mode (obsolete)",
         1001: "Macintosh print manager print info record",
@@ -213,7 +213,7 @@ class IPTCIIMModule(module.RuminaterModule):
         return meta
 
 @module.register
-class ICCProfileModule(module.RuminaterModule):
+class ICCProfileModule(module.RuminantModule):
     def read_tag(self, offset, length):
         tag = {}
 
@@ -431,7 +431,7 @@ class ICCProfileModule(module.RuminaterModule):
         return meta
 
 @module.register
-class JPEGModule(module.RuminaterModule):
+class JPEGModule(module.RuminantModule):
     HAS_PAYLOAD = [
         0xc0,  # SOF0: Baseline DCT
         0xc1,  # SOF1: Extended sequential DCT
@@ -630,7 +630,7 @@ class JPEGModule(module.RuminaterModule):
         return meta
 
 @module.register
-class PNGModule(module.RuminaterModule):
+class PNGModule(module.RuminantModule):
     def identify(buf):
         return buf.peek(8) == b"\x89PNG\r\n\x1a\n"
 
@@ -687,7 +687,7 @@ class PNGModule(module.RuminaterModule):
         return meta
 
 @module.register
-class TIFFModule(module.RuminaterModule):
+class TIFFModule(module.RuminantModule):
     TAG_IDS = {
         0: "GPSVersionID",
         1: "GPSLatitudeRef",

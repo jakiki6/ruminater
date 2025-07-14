@@ -5,7 +5,7 @@ modules = []
 def register(cls):
     modules.append(cls)
 
-class RuminaterModule(object):
+class RuminantModule(object):
     def __init__(self, buf):
         self.buf = buf
 

@@ -18,7 +18,7 @@ def mp4_decode_mdhd_language(lang_bytes):
     return chr(c1) + chr(c2) + chr(c3)
 
 @module.register
-class Mp4Module(module.RuminaterModule):
+class Mp4Module(module.RuminantModule):
     def identify(buf):
         return buf.peek(8)[4:] == b"ftyp"
 
