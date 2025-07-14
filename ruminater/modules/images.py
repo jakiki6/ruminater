@@ -213,7 +213,7 @@ class IPTCIIMModule(module.RuminaterModule):
         return meta
 
 @module.register
-class IccProfileModule(module.RuminaterModule):
+class ICCProfileModule(module.RuminaterModule):
     def read_tag(self, offset, length):
         tag = {}
 
@@ -431,7 +431,7 @@ class IccProfileModule(module.RuminaterModule):
         return meta
 
 @module.register
-class JpegModule(module.RuminaterModule):
+class JPEGModule(module.RuminaterModule):
     HAS_PAYLOAD = [
         0xc0,  # SOF0: Baseline DCT
         0xc1,  # SOF1: Extended sequential DCT
@@ -572,6 +572,7 @@ class JpegModule(module.RuminaterModule):
 
             chunk["data"] = {}
             if typ == 0xe1 and self.buf.peek(6) == b"Exif\x00\x00":
+                self.buf.skip(6)
                 chunk["data"]["tiff"] = chew(self.buf.readunit())
             elif typ == 0xe1 and self.buf.peek(4) == b"http":
                 ns = b""
@@ -628,7 +629,7 @@ class JpegModule(module.RuminaterModule):
         return meta
 
 @module.register
-class PngModule(module.RuminaterModule):
+class PNGModule(module.RuminaterModule):
     def identify(buf):
         return buf.peek(8) == b"\x89PNG\r\n\x1a\n"
 
@@ -679,5 +680,308 @@ class PngModule(module.RuminaterModule):
 
             self.buf.skipunit()
             self.buf.popunit()
+
+        return meta
+
+@module.register
+class TIFFModule(module.RuminaterModule):
+    TAG_IDS = {
+        0: "GPSVersionID",
+        1: "GPSLatitudeRef",
+        2: "GPSLatitude",
+        3: "GPSLongitudeRef",
+        4: "GPSLongitude",
+        5: "GPSAltitudeRef",
+        6: "GPSAltitude",
+        7: "GPSTimeStamp",
+        8: "GPSSatellites",
+        9: "GPSStatus",
+        10: "GPSMeasureMode",
+        11: "GPSDOP",
+        12: "GPSSpeedRef",
+        13: "GPSSpeed",
+        14: "GPSTrackRef",
+        15: "GPSTrack",
+        16: "GPSImgDirectionRef",
+        17: "GPSImgDirection",
+        18: "GPSMapDatum",
+        19: "GPSDestLatitudeRef",
+        20: "GPSDestLatitude",
+        21: "GPSDestLongitudeRef",
+        22: "GPSDestLongitude",
+        23: "GPSDestBearingRef",
+        24: "GPSDestBearing",
+        25: "GPSDestDistanceRef",
+        26: "GPSDestDistance",
+        27: "GPSProcessingMethod",
+        28: "GPSAreaInformation",
+        29: "GPSDateStamp",
+        30: "GPSDifferential",
+        31: "GPSHPositioningError",
+        254: "NewSubfileType",
+        255: "SubfileType",
+        256: "ImageWidth",
+        257: "ImageLength",
+        258: "BitsPerSample",
+        259: "Compression",
+        262: "PhotometricInterpretation",
+        263: "Threshholding",
+        264: "CellWidth",
+        265: "CellLength",
+        266: "FillOrder",
+        269: "DocumentName",
+        270: "ImageDescription",
+        271: "Make",
+        272: "Model",
+        273: "StripOffsets",
+        274: "Orientation",
+        277: "SamplesPerPixel",
+        278: "RowsPerStrip",
+        279: "StripByteCounts",
+        280: "MinSampleValue",
+        281: "MaxSampleValue",
+        282: "XResolution",
+        283: "XResolution",
+        284: "PlanarConfiguration",
+        285: "PageName",
+        286: "XPosition",
+        287: "YPosition",
+        288: "FreeOffsets",
+        289: "FreeByteCounts",
+        290: "GrayResponseUnit",
+        291: "GrayResponseCurve",
+        292: "T4Options",
+        293: "T6Options",
+        296: "ResolutionUnit",
+        297: "PageNumber",
+        301: "TransferFunction",
+        305: "Software",
+        306: "DateTime",
+        315: "Artist",
+        316: "HostComputer",
+        317: "Predictor",
+        318: "WhitePoint",
+        319: "PrimaryChromaticities",
+        320: "ColorMap",
+        321: "HalftoneHints",
+        322: "TileWidth",
+        323: "TileLength",
+        324: "TileOffset",
+        325: "TileByteCounts",
+        332: "InkSet",
+        333: "InkNames",
+        334: "NumberOfInks",
+        336: "DotRange",
+        337: "TargetPrinter",
+        338: "ExtraSamples",
+        339: "SampleFormat",
+        340: "SMinSampleValue",
+        341: "SMaxSampleValue",
+        342: "TransferRange",
+        512: "JPEGProc",
+        513: "JPEGInterchangeFormat",
+        514: "JPEGInterchangeFormatLngth",
+        515: "JPEGRestartInterval",
+        517: "JPEGLosslessPredictors",
+        518: "JPEGPointTransforms",
+        519: "JPEGQTables",
+        520: "JPEGDCTables",
+        521: "JPEGACTables",
+        529: "YCbCrCoefficients",
+        530: "YCbCrSubSampling",
+        531: "YCbCrPositioning",
+        532: "ReferenceBlackWhite",
+        33432: "Copyright",
+        33434: "ExposureTime",
+        33437: "FNumber",
+        34665: "ExifIFDPointer",
+        34850: "ExposureProgram",
+        34852: "SpectralSensitivity",
+        34853: "GPSInfoIFDPointer",
+        34855: "PhotographicSensitivity",
+        34856: "OECF",
+        34864: "SensitivityType",
+        34865: "StandardOutputSensitivity",
+        34866: "RecommendedExposureIndex",
+        34867: "ISOSpeed",
+        34868: "ISOSpeedLatitudeyyy",
+        34869: "ISOSpeedLatitudezzz",
+        36864: "ExifVersion",
+        36867: "DateTimeOriginal",
+        36868: "DateTimeDigitized",
+        36880: "OffsetTime",
+        36881: "OffsetTimeOriginal",
+        36882: "OffsetTimeDigitized",
+        37121: "ComponentsConfiguration",
+        37122: "CompressedBitsPerPixel",
+        37377: "ShutterSpeedValue",
+        37378: "ApertureValue",
+        37379: "BrightnessValue",
+        37380: "ExposureBiasValue",
+        37381: "MaxApertureValue",
+        37382: "SubjectDistance",
+        37383: "MeteringMode",
+        37384: "LightSource",
+        37385: "Flash",
+        37386: "FocalLength",
+        37396: "SubjectArea",
+        37500: "MakerNote",
+        37510: "UserComment",
+        37520: "SubSecTime",
+        37521: "SubSecTimeOriginal",
+        37522: "SubSecTimeDigitized",
+        40960: "FlashpixVersion",
+        40961: "ColorSpace",
+        40962: "PixelXDimension",
+        40963: "PixelYDimension",
+        40964: "RelatedSoundFile",
+        40965: "InteroperabilityIFDPointer",
+        41483: "FlashEnergy",
+        41484: "SpatialFrequencyResponse",
+        41486: "FocalPlaneXResolution",
+        41487: "FocalPlaneYResolution",
+        41488: "FocalPlaneResolutionUnit",
+        41492: "SubjectLocation",
+        41493: "ExposureIndex",
+        41495: "SensingMethod",
+        41728: "FileSource",
+        41729: "SceneType",
+        41730: "CFAPattern",
+        41985: "CustomRendered",
+        41986: "ExposureMode",
+        41987: "WhiteBalance",
+        41988: "DigitalZoomRatio",
+        41989: "FocalLengthIn35mmFilm",
+        41990: "SceneCaptureType",
+        41991: "GainControl",
+        41992: "Contrast",
+        41993: "Saturation",
+        41994: "Sharpness",
+        41995: "DeviceSettingDescription",
+        41996: "SubjectDistanceRange",
+        42016: "ImageUniqueID",
+        42032: "CameraOwnerName",
+        42033: "BodySerialNumber",
+        42034: "LensSpecification",
+        42035: "LensMake",
+        42036: "LensModel",
+        42037: "LensSerialNumber",
+        42080: "CompositeImage",
+        42240: "Gamma"
+    }
+
+    FIELD_TYPES = {
+        1: "Byte",
+        2: "ASCII string",
+        3: "Short",
+        4: "Long",
+        5: "Rational",
+        6: "Signed byte",
+        7: "Undefined",
+        8: "Signed short",
+        9: "Signed long",
+        10: "Signed rational",
+        11: "Float",
+        12: "Double"
+    }
+
+    def identify(buf):
+        return buf.peek(4) in (b"II*\x00", b"MM\x00*")
+
+    def chew(self):
+        meta = {}
+        meta["type"] = "tiff"
+
+        header = self.buf.read(4)
+        le = header[0] == 0x49
+
+        meta["endian"] = "little" if le else "big"
+
+        meta["data"] = {}
+        meta["data"]["tags"] = []
+
+        offset_queue = []
+        while True:
+            offset = self.buf.ru32l() if le else self.buf.ru32()
+
+            if offset == 0:
+                if len(offset_queue):
+                    offset = offset_queue.pop()
+                else:
+                    break
+
+            self.buf.seek(offset)
+
+            entry_count = self.buf.ru16l() if le else self.buf.ru16()
+            for i in range(0, entry_count):
+                tag = {}
+
+                tag_id = self.buf.ru16l() if le else self.buf.ru16()
+                tag["id"] = self.TAG_IDS.get(tag_id, "Unknown") + f" (0x{hex(tag_id)[2:].zfill(4)})"
+                field_type = self.buf.ru16l() if le else self.buf.ru16()
+                tag["type"] = self.FIELD_TYPES.get(field_type, "Unknown") + f" (0x{hex(field_type)[2:].zfill(4)})"
+                count = self.buf.ru32l() if le else self.buf.ru32()
+                tag["count"] = count
+                offset_field_offset = self.buf.tell()
+                tag_offset = self.buf.ru32l() if le else self.buf.ru32()
+                tag["offset-or-value"] = tag_offset
+
+                tag["values"] = []
+                with self.buf:
+                    if (field_type in (1, 2) and count <= 4) or (field_type in (3, 8, 11) and count <= 2) or (field_type in (4, 9, 12) and count <= 1):
+                        self.buf.seek(offset_field_offset)
+                    else:
+                        self.buf.seek(tag_offset)
+
+                    for i in range(0, count):
+                        match field_type:
+                            case 1:
+                                tag["values"].append(self.buf.ru8l() if le else self.buf.ru8())
+                            case 2:
+                                string = b""
+                                while self.buf.peek(1)[0]:
+                                    string += self.buf.read(1)
+
+                                self.buf.skip(1)
+                                tag["values"].append(string.decode("latin-1"))
+                                count -= len(string) + 1
+                                if count <= 0:
+                                    break
+                            case 3:
+                                tag["values"].append(self.buf.ru16l() if le else self.buf.ru16())
+                            case 4:
+                                value = self.buf.ru32l() if le else self.buf.ru32()
+                                tag["values"].append(value)
+
+                                if "IFD" in tag["id"]:
+                                    offset_queue.append(value)
+                            case 5:
+                                value = {}
+                                value["numerator"] = self.buf.ru32l() if le else self.buf.ru32()
+                                value["denominator"] = self.buf.ru32l() if le else self.buf.ru32()
+                                value["rational_approx"] = value["numerator"] / value["denominator"]
+                                tag["values"].append(value)
+                            case 6:
+                                tag["values"].append(self.buf.ri8l() if le else self.buf.ri8())
+                            case 8:
+                                tag["values"].append(self.buf.ri16l() if le else self.buf.ri16())
+                            case 9:
+                                tag["values"].append(self.buf.ri32l() if le else self.buf.ri32())
+                            case 10:
+                                value = {}
+                                value["numerator"] = self.buf.ri32l() if le else self.buf.ri32()
+                                value["denominator"] = self.buf.ri32l() if le else self.buf.ri32()
+                                value["rational_approx"] = value["numerator"] / value["denominator"]
+                                tag["values"].append(value)
+                            case 11:
+                                tag["values"].append(self.buf.rf32l() if le else self.buf.rf32())
+                            case 12:
+                                tag["values"].append(self.buf.rf64l() if le else self.buf.rf64())
+                            case _:
+                                tag["unknown"] = True
+
+                meta["data"]["tags"].append(tag)
+
+        self.buf.skip(self.buf.available())
 
         return meta
