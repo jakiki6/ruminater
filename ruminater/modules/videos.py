@@ -636,11 +636,21 @@ class Mp4Module(module.RuminaterModule):
                     break
 
             data = self.buf.read(l)
-            seis.append({
+            sei = ({
                 "type": t,
                 "length": l,
-                "data": data.decode("latin-1")
             })
+
+            print(data[:16].hex())
+            if data[:16].hex() == "dc45e9bde6d948b7962cd820d923eeef":
+                sei["data"] = {
+                    "uuid": data[:16].hex(),
+                    "libx264-banner": data[16:-1].decode("utf-8")
+                }
+            else:
+                sei["data"] = data.decode("latin-1")
+
+            seis.append(sei)
 
     def parse_mdat_avc1(self, atoms):
         mdat = None
