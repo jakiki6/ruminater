@@ -21,7 +21,10 @@ class EntryModule(module.RuminaterModule):
                 break
 
         if not matched:
-            meta |= {"type": "unknown"}
+            meta |= {
+                "type": "unknown",
+                "length": self.buf.size()
+            }
 
         return meta
 

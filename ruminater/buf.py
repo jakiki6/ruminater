@@ -35,12 +35,18 @@ class Buf(object):
         return data
 
     def skip(self, l):
-        self.unit = max(self.unit - l, 0)
+        if self.unit != None:
+            self.unit = max(self.unit - l, 0)
+            assert self.unit >= 0, f"unit overread by {-self.unit} byte{'s' if self.unit != -1 else ''}"
         self.seek(l, 1)
+
+    def _checkunit(self):
+        assert self.unit >= 0, f"unit overread by {-self.unit} byte{'s' if self.unit != -1 else ''}"
 
     def setunit(self, l):
         self.unit = l
         self._target = self.tell() + l
+        self._checkunit()
 
     def skipunit(self):
         self.seek(self._target)
@@ -50,24 +56,26 @@ class Buf(object):
         return self.read(self.unit)
 
     def resetunit(self):
-        self.unit = (1<<64) - 1
+        self.unit = None
 
     def read(self, count=None):
         if count == None:
-            self.unit = 0
+            self.unit = None
             return self._file.read()
         else:
-            self.unit -= count
-            assert self.unit >= 0, f"unit overread by {-self.unit} byte{'s' if self.unit != -1 else ''}"
+            if self.unit != None:
+                self.unit -= count
+                self._checkunit()
 
             return self._file.read(count)
 
     def pushunit(self):
-        self._stack.append(self._target)
+        self._stack.append((self.unit, self._target))
 
     def popunit(self):
-        t = self._stack.pop()
-        self.unit = max(t - self._target, 0)
+        self.unit, t = self._stack.pop()
+        if self.unit != None:
+            self.unit = max(t - self._target, 0)
         self._target = t
 
     def backup(self):
@@ -79,7 +87,9 @@ class Buf(object):
 
     def readline(self):
         line = self._file.readline()
-        self.unit = max(self.unit - len(line), 0)
+        if self.unit != None:
+            self.unit = max(self.unit - len(line), 0)
+            self._checkunit()
 
         if len(line) >= 2 and line[-2] == 0x0d:
             line = line[:-2] + b"\n"

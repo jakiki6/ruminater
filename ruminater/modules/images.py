@@ -611,7 +611,8 @@ class JPEGModule(module.RuminaterModule):
                     else:
                         index = buf.index(b"\xff\xd9")
                         overread = len(buf) - index
-                        self.buf.unit += overread 
+                        if self.buf.unit != None:
+                            self.buf.unit += overread 
                         self.buf.seek(-overread, 1)
                         image_length -= overread
                         self.buf.setunit(0)
