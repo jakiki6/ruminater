@@ -592,12 +592,27 @@ class JPEGModule(module.RuminantModule):
                 self.buf.skip(6)
                 chunk["data"]["tiff"] = chew(self.buf.readunit())
             elif typ == 0xe1 and self.buf.peek(4) == b"http":
-                ns = b""
-                while self.buf.peek(1)[0]:
-                    ns += self.buf.read(1)
-                self.buf.skip(1)
-                chunk["data"]["namespace"] = ns.decode("utf-8")
-                chunk["data"]["xmp"] = utils.xml_to_dict(self.buf.readunit().decode("utf-8"))
+                raw = False
+
+                with self.buf:
+                    try:
+                        ns = b""
+                        while self.buf.peek(1)[0]:
+                            ns += self.buf.read(1)
+                        self.buf.skip(1)
+                        ns = ns.decode("utf-8")
+
+                        if ns == "http://ns.adobe.com/xmp/extension/":
+                            self.buf.skip(40)
+
+                        xmp = utils.xml_to_dict(self.buf.readunit().decode("utf-8"))
+                        chunk["data"]["namespace"] = ns
+                        chunk["data"]["xmp"] = xmp
+                    except:
+                        raw = True
+
+                if raw:
+                    chunk["data"]["payload"] = self.buf.readunit().decode("latin-1")
             elif typ == 0xe2 and self.buf.peek(12) == b"ICC_PROFILE\x00":
                 chunk["data"]["icc-profile"] = chew(self.buf.readunit())["data"]
             elif typ == 0xed and self.buf.peek(18) == b"Photoshop 3.0\x008BIM":
@@ -887,7 +902,8 @@ class TIFFModule(module.RuminantModule):
         42036: "LensModel",
         42037: "LensSerialNumber",
         42080: "CompositeImage",
-        42240: "Gamma"
+        42240: "Gamma",
+        59932: "Padding"
     }
 
     FIELD_TYPES = {
