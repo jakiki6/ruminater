@@ -90,6 +90,9 @@ class Buf(object):
     def ru16(self):
         return int.from_bytes(self.read(2), "big")
 
+    def ru24(self):
+        return int.from_bytes(self.read(3), "big")
+
     def ru32(self):
         return int.from_bytes(self.read(4), "big")
 
@@ -101,6 +104,9 @@ class Buf(object):
 
     def ri16(self):
         return int.from_bytes(self.read(2), "big", signed=True)
+
+    def ri24(self):
+        return int.from_bytes(self.read(3), "big", signed=True)
 
     def ri32(self):
         return int.from_bytes(self.read(4), "big", signed=True)
@@ -114,6 +120,9 @@ class Buf(object):
     def ru16l(self):
         return int.from_bytes(self.read(2), "little")
 
+    def ru48l(self):
+        return int.from_bytes(self.read(3), "little")
+
     def ru32l(self):
         return int.from_bytes(self.read(4), "little")
 
@@ -125,6 +134,9 @@ class Buf(object):
 
     def ri16l(self):
         return int.from_bytes(self.read(2), "little", signed=True)
+
+    def ri24l(self):
+        return int.from_bytes(self.read(3), "little", signed=True)
 
     def ri32l(self):
         return int.from_bytes(self.read(4), "little", signed=True)
@@ -174,6 +186,9 @@ class Buf(object):
     def pu16(self):
         return int.from_bytes(self.peek(2), "big")
 
+    def pu24(self):
+        return int.from_bytes(self.peek(3), "big")
+
     def pu32(self):
         return int.from_bytes(self.peek(4), "big")
 
@@ -185,6 +200,9 @@ class Buf(object):
 
     def pi16(self):
         return int.from_bytes(self.peek(2), "big", signed=True)
+
+    def pi24(self):
+        return int.from_bytes(self.peek(3), "big", signed=True)
 
     def pi32(self):
         return int.from_bytes(self.peek(4), "big", signed=True)
@@ -198,6 +216,9 @@ class Buf(object):
     def pu16l(self):
         return int.from_bytes(self.peek(2), "little")
 
+    def pu24l(self):
+        return int.from_bytes(self.peek(3), "little")
+
     def pu32l(self):
         return int.from_bytes(self.peek(4), "little")
 
@@ -209,6 +230,9 @@ class Buf(object):
 
     def pi16l(self):
         return int.from_bytes(self.peek(2), "little", signed=True)
+
+    def pi24l(self):
+        return int.from_bytes(self.peek(3), "little", signed=True)
 
     def pi32l(self):
         return int.from_bytes(self.peek(4), "little", signed=True)
