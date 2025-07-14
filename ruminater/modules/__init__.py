@@ -6,13 +6,19 @@ class EntryModule(module.RuminaterModule):
     def chew(self):
         meta = {}
 
-        meta["length"] = self.buf.size()
-
         matched = False
         for m in module.modules:
             if m.identify(self.buf):
-                meta |= m(self.buf).chew()
+                rest = m(self.buf).chew()
+                meta["length"] = self.buf.tell()
+                meta |= rest
+
                 matched = True
+
+                if self.buf.available():
+                    self.buf.cut()
+                    meta["trailer"] = self.chew()
+                break
 
         if not matched:
             meta |= {"type": "unknown"}

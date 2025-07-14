@@ -7,6 +7,8 @@ class Buf(object):
         else:
             self._file = io.BytesIO(source)
 
+        self._offset = 0
+
         pos = self.tell()
         self.seek(0, 2)
         self._size = self.tell()
@@ -27,9 +29,9 @@ class Buf(object):
         return self._size
 
     def peek(self, l):
-        pos = self._file.tell()
+        pos = self.tell()
         data = self._file.read(l)
-        self._file.seek(pos)
+        self.seek(pos)
         return data
 
     def skip(self, l):
@@ -69,11 +71,11 @@ class Buf(object):
         self._target = t
 
     def backup(self):
-        return (self.unit, self._target, self._stack, self._file.tell())
+        return (self.unit, self._target, self._stack, self.tell())
 
     def restore(self, bak):
         self.unit, self._target, self._stack, offset = bak
-        self._file.seek(offset)
+        self.seek(offset)
 
     def readline(self):
         line = self._file.readline()
@@ -83,6 +85,21 @@ class Buf(object):
             line = line[:-2] + b"\n"
 
         return line
+
+    def tell(self):
+        return self._file.tell() - self._offset
+
+    def seek(self, pos, t=0):
+        if t == 0:
+            pos += self._offset
+
+        self._file.seek(pos, t)
+
+    def cut(self):
+        self._offset = self._file.tell()
+        self._file.seek(0, 2)
+        self._size = self._file.tell() - self._offset
+        self._file.seek(self._offset)
 
     def ru8(self):
         return int.from_bytes(self.read(1), "big")
