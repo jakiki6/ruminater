@@ -30,7 +30,9 @@ class Mp4Module(module.RuminaterModule):
         while not self.buf.isend():
             file["atoms"].append(self.read_atom())
 
+        offset = self.buf.tell()
         self.parse_mdat(file["atoms"])
+        self.buf.seek(offset)
 
         return file
 

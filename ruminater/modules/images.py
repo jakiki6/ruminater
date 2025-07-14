@@ -553,7 +553,8 @@ class JpegModule(module.RuminaterModule):
         meta["type"] = "jpeg"
 
         meta["chunks"] = []
-        while self.buf.available():
+        should_break = False
+        while self.buf.available() and not should_break:
             chunk = {}
 
             assert self.buf.ru8() == 0xff, "wrong marker prefix"
@@ -592,10 +593,32 @@ class JpegModule(module.RuminaterModule):
             elif typ & 0xf0 == 0xe0:
                 chunk["data"]["payload"] = self.buf.readunit().decode("latin-1")
             elif typ == 0xda:
-                self.buf.setunit((1<<64) - 1)
-                chunk["data"]["image-length"] = self.buf.available() - 2
-                self.buf.skip(self.buf.available() - 2)
-                self.buf.setunit(0)
+                image_length = 0
+                self.buf.resetunit()
+
+                BUF_LENGTH = 1<<24
+                buf = b""
+                while True:
+                    buf += self.buf.read(BUF_LENGTH)
+                    image_length += len(buf)
+
+                    if not b"\xff\xd9" in buf:
+                        if buf[-1] == b"\xff":
+                            buf = b"\xff"
+                        else:
+                            buf = b""
+                    else:
+                        index = buf.index(b"\xff\xd9")
+                        overread = len(buf) - index
+                        self.buf.unit += overread 
+                        self.buf.seek(-overread, 1)
+                        image_length -= overread
+                        self.buf.setunit(0)
+                        break
+
+                chunk["data"]["image-length"] = image_length
+            elif typ == 0xd9:
+                should_break = True
 
             meta["chunks"].append(chunk)
 
