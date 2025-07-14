@@ -131,14 +131,14 @@ class IPTCIIMModule(module.RuminaterModule):
             assert header == b"8BIM", f"Invalid IRB block header: {header}"
             block = {}
 
-            resource_id = int.from_bytes(self.buf.read(2), "big")
+            resource_id = self.buf.ru16()
             block["resource-id"] = self.RESOURCE_IDS.get(resource_id, "Unknown") + f" (0x{hex(resource_id)[2:].zfill(4)})"
-            name_length = self.buf.read(1)[0]
+            name_length = self.buf.ru8()
             block["resource-name"] = self.buf.read(name_length).decode("utf-8")
             if name_length % 2 == 0:
                 self.buf.skip(1)
 
-            data_length = int.from_bytes(self.buf.read(4), "big")
+            data_length = self.buf.ru32()
             block["data-length"] = data_length
 
             self.buf.setunit((data_length + 1) & 0xfffffffe)
@@ -146,19 +146,19 @@ class IPTCIIMModule(module.RuminaterModule):
             block["data"] = {}
             match resource_id:
                 case 1036:
-                    block["data"]["format"] = int.from_bytes(self.buf.read(4), "big")
-                    block["data"]["width"] = int.from_bytes(self.buf.read(4), "big")
-                    block["data"]["height"] = int.from_bytes(self.buf.read(4), "big")
-                    block["data"]["width-bytes"] = int.from_bytes(self.buf.read(4), "big")
-                    block["data"]["total-size"] = int.from_bytes(self.buf.read(4), "big")
-                    block["data"]["compressed-size"] = int.from_bytes(self.buf.read(4), "big")
-                    block["data"]["bit-depth"] = int.from_bytes(self.buf.read(2), "big")
-                    block["data"]["planes"] = int.from_bytes(self.buf.read(2), "big")
+                    block["data"]["format"] = self.buf.ru32()
+                    block["data"]["width"] = self.buf.ru32()
+                    block["data"]["height"] = self.buf.ru32()
+                    block["data"]["width-bytes"] = self.buf.ru32()
+                    block["data"]["total-size"] = self.buf.ru32()
+                    block["data"]["compressed-size"] = self.buf.ru32()
+                    block["data"]["bit-depth"] = self.buf.ru16()
+                    block["data"]["planes"] = self.buf.ru16()
 
                     block["data"]["image"] = chew(self.buf.read(block["data"]["compressed-size"]))
                 case 1005:
-                    block["data"]["horizontal-dpi"] = int.from_bytes(self.buf.read(4), "big") / 65536
-                    horizontal_unit = int.from_bytes(self.buf.read(2), "big")
+                    block["data"]["horizontal-dpi"] = self.buf.ru32() / 65536
+                    horizontal_unit = self.buf.ru16()
                     block["data"]["horizontal-unit"] = {
                         "raw": horizontal_unit,
                         "name":{
@@ -169,10 +169,10 @@ class IPTCIIMModule(module.RuminaterModule):
                             5: "columns"
                         }.get(horizontal_unit, "unknown")
                     }
-                    block["data"]["horizontal-scale"] = int.from_bytes(self.buf.read(2), "big")
+                    block["data"]["horizontal-scale"] = self.buf.ru16()
 
-                    block["data"]["vertical-dpi"] = int.from_bytes(self.buf.read(4), "big") / 65536
-                    vertical_unit = int.from_bytes(self.buf.read(2), "big")
+                    block["data"]["vertical-dpi"] = self.buf.ru32() / 65536
+                    vertical_unit = self.buf.ru16()
                     block["data"]["vertical-unit"] = {
                         "raw": vertical_unit,
                         "name":{
@@ -183,16 +183,16 @@ class IPTCIIMModule(module.RuminaterModule):
                             5: "Columns"
                         }.get(vertical_unit, "Unknown")
                     }
-                    block["data"]["vertical-scale"] = int.from_bytes(self.buf.read(2), "big")
+                    block["data"]["vertical-scale"] = self.buf.ru16()
                 case 1010:
-                    color_space = int.from_bytes(self.buf.read(2), "big")
+                    color_space = self.buf.ru16()
                     block["data"]["color-space"] = {
                         "raw": color_space,
                         "name": self.COLOR_SPACES.get(color_space, "Unknown")
                     }
-                    block["data"]["components"] = [int.from_bytes(self.buf.read(2), "big") for _ in range(0, 4)]
+                    block["data"]["components"] = [self.buf.ru16() for _ in range(0, 4)]
                 case 1011:
-                    flags = int.from_bytes(self.buf.read(2), "big")
+                    flags = self.buf.ru16()
                     block["data"]["flags"] = {
                         "raw": flags,
                         "show-image": bool(flags & 1)
@@ -229,26 +229,26 @@ class IccProfileModule(module.RuminaterModule):
                 case "text":
                     tag["data"]["string"] = self.buf.readunit()[:-1].decode("ascii")
                 case "desc":
-                    l = int.from_bytes(self.buf.read(4), "big")
+                    l = self.buf.ru32()
                     tag["data"]["string"] = self.buf.read(l - 1).decode("ascii")
                 case "XYZ ":
-                    tag["data"]["x"] = int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
-                    tag["data"]["y"] = int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
-                    tag["data"]["z"] = int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                    tag["data"]["x"] = self.buf.rsfp32()
+                    tag["data"]["y"] = self.buf.rsfp32()
+                    tag["data"]["z"] = self.buf.rsfp32()
                 case "curv":
-                    tag["data"]["curve-entry-count"] = int.from_bytes(self.buf.read(4), "big")
+                    tag["data"]["curve-entry-count"] = self.buf.ru32()
                 case "view":
                     tag["data"]["illuminant"] = {
-                        "x": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536,
-                        "y": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536,
-                        "z": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                        "x": self.buf.rsfp32(),
+                        "y": self.buf.rsfp32(),
+                        "z": self.buf.rsfp32()
                     }
                     tag["data"]["surround"] = {
-                        "x": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536,
-                        "y": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536,
-                        "z": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                        "x": self.buf.rsfp32(),
+                        "y": self.buf.rsfp32(),
+                        "z": self.buf.rsfp32()
                     }
-                    illuminant_type = int.from_bytes(self.buf.read(4), "big")
+                    illuminant_type = self.buf.ru32()
                     tag["data"]["illuminant-type"] = {
                         "raw": illuminant_type,
                         "name": {
@@ -264,7 +264,7 @@ class IccProfileModule(module.RuminaterModule):
                         }.get(illuminant_type, "Unknown")
                     }
                 case "meas":
-                    standard_observer = int.from_bytes(self.buf.read(4), "big")
+                    standard_observer = self.buf.ru32()
                     tag["data"]["standard-observer"] = {
                         "raw": standard_observer,
                         "name": {
@@ -274,11 +274,11 @@ class IccProfileModule(module.RuminaterModule):
                         }.get(standard_observer, "Unknown")
                     }   
                     tag["data"]["measurement-backing"] = { 
-                        "x": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536,
-                        "y": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536,
-                        "z": int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                        "x": self.buf.rsfp32(),
+                        "y": self.buf.rsfp32(),
+                        "z": self.buf.rsfp32()
                     }
-                    measurement_geometry = int.from_bytes(self.buf.read(4), "big")
+                    measurement_geometry = self.buf.ru32()
                     tag["data"]["measurement-geometry"] = {
                         "raw": measurement_geometry,
                         "name": {
@@ -287,8 +287,8 @@ class IccProfileModule(module.RuminaterModule):
                             2: "0°:d or d:0°"
                         }.get(measurement_geometry, "Unknown")
                     }
-                    tag["data"]["measurement-flare"] = int.from_bytes(self.buf.read(4), "big") / 65536
-                    standard_illuminant = int.from_bytes(self.buf.read(4), "big")
+                    tag["data"]["measurement-flare"] = self.buf.ru32() / 65536
+                    standard_illuminant = self.buf.ru32()
                     tag["data"]["standard-illuminant"] = {
                         "raw": standard_illuminant,
                         "name": {
@@ -306,9 +306,9 @@ class IccProfileModule(module.RuminaterModule):
                 case "sig ":
                     tag["data"]["signature"] = self.buf.read(4).decode("utf-8")
                 case "mluc":
-                    record_count = int.from_bytes(self.buf.read(4), "big")
+                    record_count = self.buf.ru32()
                     tag["data"]["record-count"] = record_count
-                    record_size = int.from_bytes(self.buf.read(4), "big")
+                    record_size = self.buf.ru32()
                     tag["data"]["record-size"] = record_size
 
                     tag["data"]["records"] = []
@@ -316,8 +316,8 @@ class IccProfileModule(module.RuminaterModule):
                         record = {}
                         record["language-code"] = self.buf.read(2).decode("utf-8")
                         record["country-code"] = self.buf.read(2).decode("utf-8")
-                        record["length"] = int.from_bytes(self.buf.read(4), "big")
-                        record["offset"] = int.from_bytes(self.buf.read(4), "big")
+                        record["length"] = self.buf.ru32()
+                        record["offset"] = self.buf.ru32()
 
                         with self.buf:
                             self.buf.resetunit()
@@ -326,28 +326,28 @@ class IccProfileModule(module.RuminaterModule):
 
                         tag["data"]["records"].append(record)
                 case "para":
-                    function_type = int.from_bytes(self.buf.read(2), "big")
+                    function_type = self.buf.ru16()
                     tag["data"]["function-type"] = function_type
                     self.buf.skip(2)
 
                     tag["data"]["params"] = {}
-                    g = int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                    g = self.buf.rsfp32()
                     tag["data"]["params"]["g"] = g
                     if function_type > 0:
-                        a = int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                        a = self.buf.rsfp32()
                         tag["data"]["params"]["a"] = a
-                        b = int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                        b = self.buf.rsfp32()
                         tag["data"]["params"]["b"] = b
                     if function_type > 1:
-                        c = int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                        c = self.buf.rsfp32()
                         tag["data"]["params"]["c"] = c
                     if function_type > 2:
-                        d = int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                        d = self.buf.rsfp32()
                         tag["data"]["params"]["d"] = d
                     if function_type > 3:
-                        e = int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                        e = self.buf.rsfp32()
                         tag["data"]["params"]["e"] = e
-                        f = int.from_bytes(self.buf.read(4), "big", signed=True) / 65536
+                        f = self.buf.rsfp32()
                         tag["data"]["params"]["f"] = f
 
                     tag["data"]["formula"] = {}
@@ -384,23 +384,23 @@ class IccProfileModule(module.RuminaterModule):
         meta["data"] = {}
 
         self.buf.skip(14)
-        l = int.from_bytes(self.buf.read(4), "big")
+        l = self.buf.ru32()
         meta["data"]["length"] = l
         self.buf.setunit(l)
 
         meta["data"]["cmm-type"] = self.buf.read(4).decode("utf-8")
-        meta["data"]["version"] = f"{self.buf.read(1)[0]}.{self.buf.read(3).hex().rstrip('0')}"
+        meta["data"]["version"] = f"{self.buf.ru8()}.{self.buf.read(3).hex().rstrip('0')}"
         meta["data"]["class"] = self.buf.read(4).decode("utf-8")
         meta["data"]["color-space"] = self.buf.read(4).decode("utf-8")
         meta["data"]["profile-connection-space"] = self.buf.read(4).decode("utf-8")
-        meta["data"]["date"] = datetime.datetime(*[int.from_bytes(self.buf.read(2), "big") for _ in range(0, 6)]).isoformat()
+        meta["data"]["date"] = datetime.datetime(*[self.buf.ru16() for _ in range(0, 6)]).isoformat()
         meta["data"]["file-signature"] = self.buf.read(4).decode("utf-8")
         meta["data"]["platform"] = self.buf.read(4).decode("utf-8")
         meta["data"]["flags"] = self.buf.read(4).hex()
         meta["data"]["device-manufacturer"] = self.buf.read(4).decode("utf-8")
         meta["data"]["device-model"] = self.buf.read(4).decode("utf-8")
         meta["data"]["device-attributes"] = self.buf.read(8).hex()
-        render_intent = int.from_bytes(self.buf.read(4), "big")
+        render_intent = self.buf.ru32()
         meta["data"]["render-intent"] = {
             "raw": render_intent,
             "name": {
@@ -410,19 +410,19 @@ class IccProfileModule(module.RuminaterModule):
                 3: "Absolute Colorimetric"
             }.get(render_intent, "Unknown")
         }
-        meta["data"]["pcs-illuminant"] = [int.from_bytes(self.buf.read(4), "big", signed=True) / 65536 for _ in range(0, 3)]
+        meta["data"]["pcs-illuminant"] = [self.buf.rsfp32() for _ in range(0, 3)]
         meta["data"]["profile-creator"] = self.buf.read(4).decode("utf-8")
         meta["data"]["profile-id"] = self.buf.read(4).hex()
         meta["data"]["reserved"] = self.buf.read(40).hex()
 
-        tag_count = int.from_bytes(self.buf.read(4), "big")
+        tag_count = self.buf.ru32()
         meta["data"]["tag-count"] = tag_count
         meta["data"]["tags"] = []
         for i in range(0, tag_count):
             tag = {}
             tag["name"] = self.buf.read(4).decode("utf-8")
-            tag["offset"] = int.from_bytes(self.buf.read(4), "big")
-            tag["length"] = int.from_bytes(self.buf.read(4), "big")
+            tag["offset"] = self.buf.ru32()
+            tag["length"] = self.buf.ru32()
 
             tag |= self.read_tag(tag["offset"] + 14, tag["length"])
 
@@ -556,12 +556,12 @@ class JpegModule(module.RuminaterModule):
         while self.buf.available():
             chunk = {}
 
-            assert self.buf.read(1)[0] == 0xff, "wrong marker prefix"
-            typ = self.buf.read(1)[0]
+            assert self.buf.ru8() == 0xff, "wrong marker prefix"
+            typ = self.buf.ru8()
             chunk["type"] = self.MARKER_NAME.get(typ, "UNK") + f" (0x{hex(typ)[2:].zfill(2)})"
 
             if typ in self.HAS_PAYLOAD:
-                l = int.from_bytes(self.buf.read(2), "big") - 2
+                l = self.buf.ru16() - 2
             else:
                 l = 0
 
@@ -588,7 +588,7 @@ class JpegModule(module.RuminaterModule):
                 chunk["data"]["pre-defined"] = self.buf.read(1).hex()
                 chunk["data"]["flags0"] = self.buf.read(2).hex()
                 chunk["data"]["flags1"] = self.buf.read(2).hex()
-                chunk["data"]["transform"] = self.buf.read(1)[0]
+                chunk["data"]["transform"] = self.buf.ru8()
             elif typ & 0xf0 == 0xe0:
                 chunk["data"]["payload"] = self.buf.readunit().decode("latin-1")
             elif typ == 0xda:
@@ -616,7 +616,7 @@ class PngModule(module.RuminaterModule):
         self.buf.seek(8)
         meta["chunks"] = []
         while self.buf.available():
-            length = int.from_bytes(self.buf.read(4), "big")
+            length = self.buf.ru32()
             self.buf.pushunit()
             self.buf.setunit(length + 8)
 
@@ -644,13 +644,13 @@ class PngModule(module.RuminaterModule):
             chunk["data"] = {}
             match chunk_type:
                 case b"IHDR":
-                    chunk["data"]["width"] = int.from_bytes(self.buf.read(4), "big")
-                    chunk["data"]["height"] = int.from_bytes(self.buf.read(4), "big")
-                    chunk["data"]["bit-depth"] = self.buf.read(1)[0]
-                    chunk["data"]["color-type"] = self.buf.read(1)[0]
-                    chunk["data"]["compression"] = self.buf.read(1)[0]
-                    chunk["data"]["filter-method"] = self.buf.read(1)[0]
-                    chunk["data"]["interlace-method"] = self.buf.read(1)[0]
+                    chunk["data"]["width"] = self.buf.ru32()
+                    chunk["data"]["height"] = self.buf.ru32()
+                    chunk["data"]["bit-depth"] = self.buf.ru8()
+                    chunk["data"]["color-type"] = self.buf.ru8()
+                    chunk["data"]["compression"] = self.buf.ru8()
+                    chunk["data"]["filter-method"] = self.buf.ru8()
+                    chunk["data"]["interlace-method"] = self.buf.ru8()
 
             meta["chunks"].append(chunk)
 
