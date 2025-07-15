@@ -393,7 +393,8 @@ class ICCProfileModule(module.RuminantModule):
         meta["data"]["class"] = self.buf.read(4).decode("utf-8")
         meta["data"]["color-space"] = self.buf.read(4).decode("utf-8")
         meta["data"]["profile-connection-space"] = self.buf.read(4).decode("utf-8")
-        meta["data"]["date"] = datetime.datetime(*[self.buf.ru16() for _ in range(0, 6)]).isoformat()
+        year, month, day, hour, minute, second = [self.buf.ru16() for _ in range(0, 6)]
+        meta["data"]["date"] = str(year).zfill(4) + "-" + str(month).zfill(2) + "-" + str(day).zfill(2) + "T" + str(hour).zfill(2) + ":" + str(minute).zfill(2) + ":" + str(second).zfill(2)
         meta["data"]["file-signature"] = self.buf.read(4).decode("utf-8")
         meta["data"]["platform"] = self.buf.read(4).decode("utf-8")
         meta["data"]["flags"] = self.buf.read(4).hex()
