@@ -576,7 +576,7 @@ class Mp4Module(module.RuminantModule):
             atom["data"]["compositionEndTime"] = self.buf.ru32()
         elif typ[0] == "©" or typ == "iods":
             atom["data"]["payload"] = self.buf.readunit().hex()
-        elif typ[0] == "\x00" == "mdat":
+        elif typ[0] == "\x00" or typ == "mdat":
             pass
         else:
             atom["unknown"] = True
@@ -643,7 +643,6 @@ class Mp4Module(module.RuminantModule):
                 "length": l,
             })
 
-            print(data[:16].hex())
             if data[:16].hex() == "dc45e9bde6d948b7962cd820d923eeef":
                 sei["data"] = {
                     "uuid": data[:16].hex(),
