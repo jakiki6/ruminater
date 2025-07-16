@@ -19,6 +19,13 @@ class Buf(object):
         self._stack = []
         self._backup = []
 
+    @classmethod
+    def of(cls, source):
+        if isinstance(source, cls):
+            return source
+        else:
+            return cls(source)
+
     def available(self):
         return self._size - self.tell()
 
@@ -105,11 +112,29 @@ class Buf(object):
 
         self._file.seek(pos, t)
 
+    def sub(self, size):
+        assert size <= self.size(), "sub buffer is bigger than host buffer"
+
+        class SubWrapper(object):
+            def __enter__(self2):
+                self2._offset = self._offset
+                self2._size = self._size
+                self2._bak = self.backup()
+                self._offset += self.tell()
+                self._size = size
+
+            def __exit__(self2, *args):
+                self._offset = self2._offset
+                self._size = self2._size
+                self.restore(self2._bak)
+
+        return SubWrapper()
+
+    def subunit(self):
+        return self.sub(self.unit)
+
     def cut(self):
-        self._offset = self._file.tell()
-        self._file.seek(0, 2)
-        self._size = self._file.tell() - self._offset
-        self._file.seek(self._offset)
+        return self.sub(self.available())
 
     def ru8(self):
         return int.from_bytes(self.read(1), "big")
@@ -316,7 +341,7 @@ class Buf(object):
     def __enter__(self):
         self._backup.append(self.backup())
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, *args):
         self.restore(self._backup.pop())
 
     def __iter__(self):
