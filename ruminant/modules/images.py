@@ -138,7 +138,7 @@ class IPTCIIMModule(module.RuminantModule):
                 + f" (0x{hex(resource_id)[2:].zfill(4)})"
             )
             name_length = self.buf.ru8()
-            block["resource-name"] = self.buf.read(name_length).decode("utf-8")
+            block["resource-name"] = self.buf.rs(name_length)
             if name_length % 2 == 0:
                 self.buf.skip(1)
 
@@ -162,7 +162,7 @@ class IPTCIIMModule(module.RuminantModule):
                     with self.buf.sub(block["data"]["compressed-size"]):
                         block["data"]["image"] = chew(self.buf)
                 case 1005:
-                    block["data"]["horizontal-dpi"] = self.buf.ru32() / 65536
+                    block["data"]["horizontal-dpi"] = self.buf.rfp32()
                     horizontal_unit = self.buf.ru16()
                     block["data"]["horizontal-unit"] = {
                         "raw": horizontal_unit,
@@ -176,7 +176,7 @@ class IPTCIIMModule(module.RuminantModule):
                     }
                     block["data"]["horizontal-scale"] = self.buf.ru16()
 
-                    block["data"]["vertical-dpi"] = self.buf.ru32() / 65536
+                    block["data"]["vertical-dpi"] = self.buf.rfp32()
                     vertical_unit = self.buf.ru16()
                     block["data"]["vertical-unit"] = {
                         "raw": vertical_unit,
@@ -227,7 +227,7 @@ class ICCProfileModule(module.RuminantModule):
 
         with self.buf:
             self.buf.seek(offset)
-            typ = self.buf.read(4).decode("utf-8")
+            typ = self.buf.rs(4)
             self.buf.skip(4)
             self.buf.setunit(length - 8)
 
@@ -240,9 +240,9 @@ class ICCProfileModule(module.RuminantModule):
                     )
                 case "desc":
                     desc_length = self.buf.ru32()
-                    tag["data"]["string"] = self.buf.read(
-                        desc_length - 1
-                    ).decode("ascii")
+                    tag["data"]["string"] = self.buf.rs(
+                        desc_length - 1, "ascii"
+                    )
                 case "XYZ ":
                     tag["data"]["x"] = self.buf.rsfp32()
                     tag["data"]["y"] = self.buf.rsfp32()
@@ -299,7 +299,7 @@ class ICCProfileModule(module.RuminantModule):
                             2: "0°:d or d:0°",
                         }.get(measurement_geometry, "Unknown"),
                     }
-                    tag["data"]["measurement-flare"] = self.buf.ru32() / 65536
+                    tag["data"]["measurement-flare"] = self.buf.rfp32()
                     standard_illuminant = self.buf.ru32()
                     tag["data"]["standard-illuminant"] = {
                         "raw": standard_illuminant,
@@ -316,7 +316,7 @@ class ICCProfileModule(module.RuminantModule):
                         }.get(standard_illuminant, "Unknown"),
                     }
                 case "sig ":
-                    tag["data"]["signature"] = self.buf.read(4).decode("utf-8")
+                    tag["data"]["signature"] = self.buf.rs(4)
                 case "mluc":
                     record_count = self.buf.ru32()
                     tag["data"]["record-count"] = record_count
@@ -326,21 +326,17 @@ class ICCProfileModule(module.RuminantModule):
                     tag["data"]["records"] = []
                     for i in range(0, record_count):
                         record = {}
-                        record["language-code"] = self.buf.read(2).decode(
-                            "utf-8"
-                        )
-                        record["country-code"] = self.buf.read(2).decode(
-                            "utf-8"
-                        )
+                        record["language-code"] = self.buf.rs(2)
+                        record["country-code"] = self.buf.rs(2)
                         record["length"] = self.buf.ru32()
                         record["offset"] = self.buf.ru32()
 
                         with self.buf:
                             self.buf.resetunit()
                             self.buf.seek(record["offset"] + offset)
-                            record["text"] = self.buf.read(
-                                record["length"]
-                            ).decode("utf-16be")
+                            record["text"] = self.buf.rs(
+                                record["length"], "utf-16be"
+                            )
 
                         tag["data"]["records"].append(record)
                 case "para":
@@ -424,15 +420,13 @@ class ICCProfileModule(module.RuminantModule):
         meta["data"]["length"] = length
         self.buf.setunit(length)
 
-        meta["data"]["cmm-type"] = self.buf.read(4).decode("utf-8")
+        meta["data"]["cmm-type"] = self.buf.rs(4)
         meta["data"][
             "version"
-        ] = f"{self.buf.ru8()}.{self.buf.read(3).hex().rstrip('0')}"
-        meta["data"]["class"] = self.buf.read(4).decode("utf-8")
-        meta["data"]["color-space"] = self.buf.read(4).decode("utf-8")
-        meta["data"]["profile-connection-space"] = self.buf.read(4).decode(
-            "utf-8"
-        )
+        ] = f"{self.buf.ru8()}.{self.buf.rh(3).rstrip('0')}"
+        meta["data"]["class"] = self.buf.rs(4)
+        meta["data"]["color-space"] = self.buf.rs(4)
+        meta["data"]["profile-connection-space"] = self.buf.rs(4)
         year, month, day, hour, minute, second = [
             self.buf.ru16() for _ in range(0, 6)
         ]
@@ -449,12 +443,12 @@ class ICCProfileModule(module.RuminantModule):
             + ":"
             + str(second).zfill(2)
         )
-        meta["data"]["file-signature"] = self.buf.read(4).decode("utf-8")
-        meta["data"]["platform"] = self.buf.read(4).decode("utf-8")
-        meta["data"]["flags"] = self.buf.read(4).hex()
-        meta["data"]["device-manufacturer"] = self.buf.read(4).decode("utf-8")
-        meta["data"]["device-model"] = self.buf.read(4).decode("utf-8")
-        meta["data"]["device-attributes"] = self.buf.read(8).hex()
+        meta["data"]["file-signature"] = self.buf.rs(4)
+        meta["data"]["platform"] = self.buf.rs(4)
+        meta["data"]["flags"] = self.buf.rh(4)
+        meta["data"]["device-manufacturer"] = self.buf.rs(4)
+        meta["data"]["device-model"] = self.buf.rs(4)
+        meta["data"]["device-attributes"] = self.buf.rh(8)
         render_intent = self.buf.ru32()
         meta["data"]["render-intent"] = {
             "raw": render_intent,
@@ -468,16 +462,16 @@ class ICCProfileModule(module.RuminantModule):
         meta["data"]["pcs-illuminant"] = [
             self.buf.rsfp32() for _ in range(0, 3)
         ]
-        meta["data"]["profile-creator"] = self.buf.read(4).decode("utf-8")
-        meta["data"]["profile-id"] = self.buf.read(4).hex()
-        meta["data"]["reserved"] = self.buf.read(40).hex()
+        meta["data"]["profile-creator"] = self.buf.rs(4)
+        meta["data"]["profile-id"] = self.buf.rh(4)
+        meta["data"]["reserved"] = self.buf.rh(40)
 
         tag_count = self.buf.ru32()
         meta["data"]["tag-count"] = tag_count
         meta["data"]["tags"] = []
         for i in range(0, tag_count):
             tag = {}
-            tag["name"] = self.buf.read(4).decode("utf-8")
+            tag["name"] = self.buf.rs(4)
             tag["offset"] = self.buf.ru32()
             tag["length"] = self.buf.ru32()
 
@@ -688,10 +682,10 @@ class JPEGModule(module.RuminantModule):
                 with self.buf.subunit():
                     chunk["data"]["iptc"] = chew(self.buf)["data"]
             elif typ == 0xEE and self.buf.peek(5) == b"Adobe":
-                chunk["data"]["identifier"] = self.buf.read(5).decode("utf-8")
-                chunk["data"]["pre-defined"] = self.buf.read(1).hex()
-                chunk["data"]["flags0"] = self.buf.read(2).hex()
-                chunk["data"]["flags1"] = self.buf.read(2).hex()
+                chunk["data"]["identifier"] = self.buf.rs(5)
+                chunk["data"]["pre-defined"] = self.buf.rh(1)
+                chunk["data"]["flags0"] = self.buf.rh(2)
+                chunk["data"]["flags1"] = self.buf.rh(2)
                 chunk["data"]["transform"] = self.buf.ru8()
             elif typ & 0xF0 == 0xE0:
                 chunk["data"]["payload"] = self.buf.readunit().decode(
