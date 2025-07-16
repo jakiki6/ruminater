@@ -3,6 +3,7 @@ from .. import module
 
 import zipfile
 
+
 @module.register
 class ZipModule(module.RuminantModule):
     def identify(buf):
@@ -32,4 +33,8 @@ class ZipModule(module.RuminantModule):
 
             files.append(file)
 
-        return {"type": "zip", "comment": zf.comment.decode("utf-8"), "files": files}
+        return {
+            "type": "zip",
+            "comment": zf.comment.decode("utf-8"),
+            "files": files,
+        }

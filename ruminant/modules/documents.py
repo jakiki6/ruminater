@@ -1,4 +1,3 @@
-from . import chew
 from .. import module
 from ..buf import Buf
 
@@ -7,10 +6,11 @@ import xml.etree.ElementTree as ET
 import re
 from io import BufferedReader
 
+
 @module.register
 class DocxModule(module.RuminantModule):
     def identify(buf):
-        return False # TODO
+        return False  # TODO
 
     def chew(self):
         zf = zipfile.ZipFile(self.buf, "r")
@@ -25,17 +25,17 @@ class DocxModule(module.RuminantModule):
                 match child.tag:
                     case "{http://purl.org/dc/elements/1.1/}creator":
                         meta["creator"] = child.text
-                    case "{http://schemas.openxmlformats.org/package/2006/metadata/core-properties}lastModifiedBy":
+                    case "{http://schemas.openxmlformats.org/package/2006/metadata/core-properties}lastModifiedBy":  # noqa: E501
                         meta["last-modified-by"] = child.text
                     case "{http://purl.org/dc/terms/}created":
                         meta["created"] = child.text
                     case "{http://purl.org/dc/terms/}modified":
                         meta["modified"] = child.text
-                    case "{http://schemas.openxmlformats.org/package/2006/metadata/core-properties}lastPrinted":
+                    case "{http://schemas.openxmlformats.org/package/2006/metadata/core-properties}lastPrinted":  # noqa: E501
                         meta["last-printed"] = child.text
-                    case "{http://schemas.openxmlformats.org/package/2006/metadata/core-properties}revision":
+                    case "{http://schemas.openxmlformats.org/package/2006/metadata/core-properties}revision":  # noqa: E501
                         meta["revision"] = int(child.text)
-        except:
+        except ET.ParseError:
             pass
 
         try:
@@ -44,19 +44,23 @@ class DocxModule(module.RuminantModule):
 
             for child in root:
                 match child.tag:
-                    case "{http://schemas.openxmlformats.org/officeDocument/2006/extended-properties}Application":
+                    case "{http://schemas.openxmlformats.org/officeDocument/2006/extended-properties}Application":  # noqa: E501
                         meta["application"] = child.text
-                    case "{http://schemas.openxmlformats.org/officeDocument/2006/extended-properties}Pages":
+                    case "{http://schemas.openxmlformats.org/officeDocument/2006/extended-properties}Pages":  # noqa: E501
                         meta["pages"] = int(child.text)
-        except:
+        except ET.ParseError:
             pass
 
         return meta
 
+
 @module.register
 class PdfModule(module.RuminantModule):
     obj_regex = re.compile(r"^(\d+)\s+(\d+)\s+obj.*$")
-    TOKEN_PATTERN = re.compile(r"( << | >> | \[ | \] | /[^\s<>/\[\]()]+ | \d+\s+\d+\s+R | \d+\.\d+ | \d+ | \( (?: [^\\\)] | \\ . )* \) | <[0-9A-Fa-f]*> | true | false | null )", re.VERBOSE | re.DOTALL)
+    TOKEN_PATTERN = re.compile(
+        r"( << | >> | \[ | \] | /[^\s<>/\[\]()]+ | \d+\s+\d+\s+R | \d+\.\d+ | \d+ | \( (?: [^\\\)] | \\ . )* \) | <[0-9A-Fa-f]*> | true | false | null )",  # noqa: E501
+        re.VERBOSE | re.DOTALL,
+    )
 
     def identify(buf):
         return buf.peek(5) == b"%PDF-"
@@ -67,7 +71,9 @@ class PdfModule(module.RuminantModule):
         meta = {}
         meta["type"] = "pdf"
 
-        meta["version"] = self.buf.readline()[:-1].decode("latin-1").split("-")[1]
+        meta["version"] = (
+            self.buf.readline()[:-1].decode("latin-1").split("-")[1]
+        )
         meta["binary_comment"] = self.buf.readline()[:-1].hex()
 
         meta["objects"] = []
@@ -83,11 +89,9 @@ class PdfModule(module.RuminantModule):
                 d = self.read_dict()
                 self.buf.readline()
 
-                meta["objects"].append({
-                    "id": obj_id,
-                    "generation": obj_gen,
-                    "dictionary": d
-                })
+                meta["objects"].append(
+                    {"id": obj_id, "generation": obj_gen, "dictionary": d}
+                )
 
                 if "Length" in d:
                     self.buf.readline()
@@ -106,18 +110,25 @@ class PdfModule(module.RuminantModule):
                 break
 
         if self.buf.peek(1) == b"0":
-            xref_count = int(self.buf.readline().decode("latin-1").split(" ")[1].split("\n")[0])
+            xref_count = int(
+                self.buf.readline()
+                .decode("latin-1")
+                .split(" ")[1]
+                .split("\n")[0]
+            )
 
             meta["xref_count"] = xref_count
             meta["xrefs"] = []
             for i in range(0, xref_count):
                 line = self.buf.readline()[:-1].decode("latin-1").split(" ")
 
-                meta["xrefs"].append({
-                    "offset": int(line[0]),
-                    "generation": int(line[1]),
-                    "in-use": line[2] == "n"
-                })
+                meta["xrefs"].append(
+                    {
+                        "offset": int(line[0]),
+                        "generation": int(line[1]),
+                        "in-use": line[2] == "n",
+                    }
+                )
 
             self.buf.readline()
 
@@ -169,7 +180,9 @@ class PdfModule(module.RuminantModule):
                 return result
             if key is None:
                 if not token.startswith("/"):
-                    raise ValueError(f"Expected key starting with /, got {token}")
+                    raise ValueError(
+                        f"Expected key starting with /, got {token}"
+                    )
                 key = token[1:]
             else:
                 value = cls.parse_value(token, tokens)

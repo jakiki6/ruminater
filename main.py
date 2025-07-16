@@ -1,6 +1,8 @@
-import sys, os
+import sys
+import os
+
 sys.path.insert(0, os.path.dirname(__file__))
 
-import ruminant
+import ruminant.main  # noqa: E402
 
-ruminant.main()
+ruminant.main.main()
