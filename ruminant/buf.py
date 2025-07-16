@@ -1,4 +1,6 @@
-import io, struct
+import io
+import struct
+
 
 class Buf(object):
     def __init__(self, source):
@@ -35,24 +37,28 @@ class Buf(object):
     def size(self):
         return self._size
 
-    def peek(self, l):
+    def peek(self, length):
         pos = self.tell()
-        data = self._file.read(l)
+        data = self._file.read(length)
         self.seek(pos)
         return data
 
-    def skip(self, l):
-        if self.unit != None:
-            self.unit = max(self.unit - l, 0)
-            assert self.unit >= 0, f"unit overread by {-self.unit} byte{'s' if self.unit != -1 else ''}"
-        self.seek(l, 1)
+    def skip(self, length):
+        if self.unit is not None:
+            self.unit = max(self.unit - length, 0)
+            assert (
+                self.unit >= 0
+            ), f"unit overread by {-self.unit} byte{'s' if self.unit != -1 else ''}"  # noqa: E501
+        self.seek(length, 1)
 
     def _checkunit(self):
-        assert self.unit >= 0, f"unit overread by {-self.unit} byte{'s' if self.unit != -1 else ''}"
+        assert (
+            self.unit >= 0
+        ), f"unit overread by {-self.unit} byte{'s' if self.unit != -1 else ''}"  # noqa: E501
 
-    def setunit(self, l):
-        self.unit = l
-        self._target = self.tell() + l
+    def setunit(self, length):
+        self.unit = length
+        self._target = self.tell() + length
         self._checkunit()
 
     def skipunit(self):
@@ -66,11 +72,11 @@ class Buf(object):
         self.unit = None
 
     def read(self, count=None):
-        if count == None:
+        if count is None:
             self.unit = None
             return self._file.read()
         else:
-            if self.unit != None:
+            if self.unit is not None:
                 self.unit -= count
                 self._checkunit()
 
@@ -81,7 +87,7 @@ class Buf(object):
 
     def popunit(self):
         self.unit, t = self._stack.pop()
-        if self.unit != None:
+        if self.unit is not None:
             self.unit = max(t - self._target, 0)
         self._target = t
 
@@ -94,11 +100,11 @@ class Buf(object):
 
     def readline(self):
         line = self._file.readline()
-        if self.unit != None:
+        if self.unit is not None:
             self.unit = max(self.unit - len(line), 0)
             self._checkunit()
 
-        if len(line) >= 2 and line[-2] == 0x0d:
+        if len(line) >= 2 and line[-2] == 0x0D:
             line = line[:-2] + b"\n"
 
         return line
@@ -106,11 +112,11 @@ class Buf(object):
     def tell(self):
         return self._file.tell() - self._offset
 
-    def seek(self, pos, t=0):
-        if t == 0:
+    def seek(self, pos, whence=0):
+        if whence == 0:
             pos += self._offset
 
-        self._file.seek(pos, t)
+        self._file.seek(pos, whence)
 
     def sub(self, size):
         assert size <= self.size(), "sub buffer is bigger than host buffer"
@@ -328,11 +334,11 @@ class Buf(object):
     def psfp32l(self):
         return self.ri32l() / 65536
 
-    def rh(self, l):
-        return self.read(l).hex()
+    def rh(self, length):
+        return self.read(length).hex()
 
-    def ph(self, l):
-        return self.peek(l).hex()
+    def ph(self, length):
+        return self.peek(length).hex()
 
     def __getattr__(self, name):
         # Delegate everything else to the underlying file
@@ -349,4 +355,3 @@ class Buf(object):
 
     def __next__(self):
         return next(self._file)
-

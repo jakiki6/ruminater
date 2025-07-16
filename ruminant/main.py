@@ -1,5 +1,7 @@
 from . import modules
-import sys, json
+import sys
+import json
+
 
 def main():
     if len(sys.argv) != 2:
