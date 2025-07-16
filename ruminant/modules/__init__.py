@@ -16,8 +16,10 @@ class EntryModule(module.RuminantModule):
                 matched = True
 
                 if self.buf.available():
-                    self.buf.cut()
-                    meta["trailer"] = self.chew()
+                    with self.buf.cut():
+                        meta["trailer"] = self.chew()
+
+                    self.buf.skip(self.buf.available())
                 break
 
         if not matched:
@@ -29,6 +31,6 @@ class EntryModule(module.RuminantModule):
         return meta
 
 def chew(blob):
-    return EntryModule(Buf(blob)).chew()
+    return EntryModule(Buf.of(blob)).chew()
 
 from . import containers, images, videos, documents

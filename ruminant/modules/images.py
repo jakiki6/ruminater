@@ -155,7 +155,8 @@ class IPTCIIMModule(module.RuminantModule):
                     block["data"]["bit-depth"] = self.buf.ru16()
                     block["data"]["planes"] = self.buf.ru16()
 
-                    block["data"]["image"] = chew(self.buf.read(block["data"]["compressed-size"]))
+                    with self.buf.sub(block["data"]["compressed-size"]):
+                        block["data"]["image"] = chew(self.buf)
                 case 1005:
                     block["data"]["horizontal-dpi"] = self.buf.ru32() / 65536
                     horizontal_unit = self.buf.ru16()
@@ -591,7 +592,8 @@ class JPEGModule(module.RuminantModule):
                 chunk["data"]["thumbnail-data-length"] = self.buf.unit
             elif typ == 0xe1 and self.buf.peek(6) == b"Exif\x00\x00":
                 self.buf.skip(6)
-                chunk["data"]["tiff"] = chew(self.buf.readunit())
+                with self.buf.subunit():
+                    chunk["data"]["tiff"] = chew(self.buf)
             elif typ == 0xe1 and self.buf.peek(4) == b"http":
                 raw = False
 
@@ -615,9 +617,11 @@ class JPEGModule(module.RuminantModule):
                 if raw:
                     chunk["data"]["payload"] = self.buf.readunit().decode("latin-1")
             elif typ == 0xe2 and self.buf.peek(12) == b"ICC_PROFILE\x00":
-                chunk["data"]["icc-profile"] = chew(self.buf.readunit())["data"]
+                with self.buf.subunit():
+                    chunk["data"]["icc-profile"] = chew(self.buf)["data"]
             elif typ == 0xed and self.buf.peek(18) == b"Photoshop 3.0\x008BIM":
-                chunk["data"]["iptc"] = chew(self.buf.readunit())["data"]
+                with self.buf.subunit():
+                    chunk["data"]["iptc"] = chew(self.buf)["data"]
             elif typ == 0xee and self.buf.peek(5) == b"Adobe":
                 chunk["data"]["identifier"] = self.buf.read(5).decode("utf-8")
                 chunk["data"]["pre-defined"] = self.buf.read(1).hex()
@@ -710,7 +714,8 @@ class PNGModule(module.RuminantModule):
                     chunk["data"]["filter-method"] = self.buf.ru8()
                     chunk["data"]["interlace-method"] = self.buf.ru8()
                 case b"eXIf":
-                    chunk["data"]["tiff"] = chew(self.buf.read(length))
+                    with self.buf.sub(length):
+                        chunk["data"]["tiff"] = chew(self.buf)
 
             meta["chunks"].append(chunk)
 
