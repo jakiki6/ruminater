@@ -30,9 +30,8 @@ class Mp4Module(module.RuminantModule):
         while not self.buf.isend():
             file["atoms"].append(self.read_atom())
 
-        offset = self.buf.tell()
-        self.parse_mdat(file["atoms"])
-        self.buf.seek(offset)
+        with self.buf:
+            self.parse_mdat(file["atoms"])
 
         return file
 
@@ -68,7 +67,7 @@ class Mp4Module(module.RuminantModule):
         typ = self.buf.read(4).decode("latin-1")
 
         if length == 1:
-            length = self.buf.ru64()
+            length = self.buf.ru64() - 8
 
         atom = {
             "type": typ,
