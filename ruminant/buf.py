@@ -340,6 +340,12 @@ class Buf(object):
     def ph(self, length):
         return self.peek(length).hex()
 
+    def rs(self, length, encoding="utf-8"):
+        return self.read(length).decode(encoding)
+
+    def ps(self, length, encoding="utf-8"):
+        return self.peek(length).decode(encoding)
+
     def __getattr__(self, name):
         # Delegate everything else to the underlying file
         return getattr(self._file, name)
