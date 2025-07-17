@@ -1,5 +1,6 @@
 import io
 import struct
+import uuid
 
 
 class Buf(object):
@@ -367,6 +368,12 @@ class Buf(object):
         self.seek(pos)
 
         return s.decode(encoding)
+
+    def ruuid(self):
+        return str(uuid.UUID(bytes=self.read(16)))
+
+    def puuid(self):
+        return str(uuid.UUID(bytes=self.peek(16)))
 
     def __getattr__(self, name):
         # Delegate everything else to the underlying file
