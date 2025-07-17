@@ -26,6 +26,10 @@ Ruminant is still in early alpha but it can already process the following file t
 * MP4 files
   * XMP metadata
   * AVC1 x264 banners
+  * all of the DRM stuff that Netflix puts in their streams
+    * CENC
+    * PlayReady
+    * Widevine
 
 # Ruminant can't parse xyz
 Feel free to send me a sample so I can add a parser for it :)
