@@ -39,7 +39,7 @@ class Mp4Module(module.RuminantModule):
         return file
 
     def read_version(self, atom):
-        version = self.buf.read(1)[0]
+        version = self.buf.ru8()
         atom["data"]["version"] = version
         atom["data"]["flags"] = self.buf.ru24()
         return version
@@ -138,7 +138,7 @@ class Mp4Module(module.RuminantModule):
                 atom["data"]["pre_defined"] = self.buf.rh(24)
                 atom["data"]["next_track_ID"] = self.buf.ru32()
         elif typ == "tkhd":
-            version = self.buf.read(1)[0]
+            version = self.buf.ru8()
             atom["data"]["version"] = version
             flags = self.buf.ru24()
             atom["data"]["flags"] = {
@@ -244,7 +244,7 @@ class Mp4Module(module.RuminantModule):
             for i in range(0, entry_count):
                 atom["data"]["atoms"].append(self.read_atom())
         elif typ == "url ":
-            version = self.buf.read(1)[0]
+            version = self.buf.ru8()
             atom["data"]["version"] = version
             flags = self.buf.ru24()
             atom["data"]["flags"] = {"raw": flags, "local": bool(flags & 1)}
@@ -262,7 +262,7 @@ class Mp4Module(module.RuminantModule):
             atom["data"]["vertresolution"] = self.buf.rfp32()
             atom["data"]["reserved3"] = self.buf.rh(4)
             atom["data"]["frame_count"] = self.buf.ru16()
-            name_length = self.buf.read(1)[0]
+            name_length = self.buf.ru8()
             name = self.buf.read(31)
             atom["data"]["compressorname"] = name[:name_length].decode("utf-8")
             atom["data"]["depth"] = self.buf.ru16()
@@ -270,13 +270,13 @@ class Mp4Module(module.RuminantModule):
 
             self.read_more(atom)
         elif typ == "avcC":
-            atom["data"]["configurationVersion"] = self.buf.read(1)[0]
-            atom["data"]["AVCProfileIndication"] = self.buf.read(1)[0]
-            atom["data"]["profile_compatibility"] = self.buf.read(1)[0]
-            atom["data"]["AVCLevelIndication"] = self.buf.read(1)[0]
-            atom["data"]["lengthSizeMinusOne"] = self.buf.read(1)[0]
+            atom["data"]["configurationVersion"] = self.buf.ru8()
+            atom["data"]["AVCProfileIndication"] = self.buf.ru8()
+            atom["data"]["profile_compatibility"] = self.buf.ru8()
+            atom["data"]["AVCLevelIndication"] = self.buf.ru8()
+            atom["data"]["lengthSizeMinusOne"] = self.buf.ru8()
 
-            atom["data"]["numOfSequenceParameterSets"] = self.buf.read(1)[0]
+            atom["data"]["numOfSequenceParameterSets"] = self.buf.ru8()
             atom["data"]["sequenceParameterSets"] = []
             for i in range(
                     0,
@@ -285,7 +285,7 @@ class Mp4Module(module.RuminantModule):
                 atom["data"]["sequenceParameterSets"].append(
                     self.buf.rh(length))
 
-            atom["data"]["numOfPictureParameterSets"] = self.buf.read(1)[0]
+            atom["data"]["numOfPictureParameterSets"] = self.buf.ru8()
             atom["data"]["pictureParameterSets"] = []
             for i in range(0, atom["data"]["numOfPictureParameterSets"]):
                 length = self.buf.ru16()
@@ -306,7 +306,7 @@ class Mp4Module(module.RuminantModule):
                     atom["data"]["color_primaries"] = self.buf.ru16()
                     atom["data"]["transfer_characteristics"] = self.buf.ru16()
                     atom["data"]["matrix_coefficients"] = self.buf.ru16()
-                    full_range_flag = self.buf.read(1)[0]
+                    full_range_flag = self.buf.ru8()
                     atom["data"]["full_range_flag"] = {
                         "raw": full_range_flag,
                         "full": bool(full_range_flag & 0x80),
@@ -343,7 +343,7 @@ class Mp4Module(module.RuminantModule):
             entry_count = self.buf.ru32()
             atom["data"]["entry_count"] = entry_count
         elif typ == "sgpd":
-            version = self.buf.read(1)[0]
+            version = self.buf.ru8()
             atom["data"]["version"] = version
             flags = self.buf.ru24()
             atom["data"]["flags"] = {
@@ -437,7 +437,7 @@ class Mp4Module(module.RuminantModule):
             atom["data"]["vertresolution"] = self.buf.ru32()
             atom["data"]["reserved3"] = self.buf.rh(4)
             atom["data"]["frame_count"] = self.buf.ru16()
-            name_length = self.buf.read(1)[0]
+            name_length = self.buf.ru8()
             name = self.buf.read(31)
             atom["data"]["compressorname"] = name[:name_length].decode("utf-8")
             atom["data"]["depth"] = self.buf.ru16()
@@ -445,11 +445,11 @@ class Mp4Module(module.RuminantModule):
 
             self.read_more(atom)
         elif typ == "vpcC":
-            atom["data"]["profile"] = self.buf.read(1)[0]
-            atom["data"]["level"] = self.buf.read(1)[0]
-            atom["data"]["bit_depth"] = self.buf.read(1)[0]
-            atom["data"]["chroma_subsampling"] = self.buf.read(1)[0]
-            atom["data"]["video_full_range_flag"] = self.buf.read(1)[0]
+            atom["data"]["profile"] = self.buf.ru8()
+            atom["data"]["level"] = self.buf.ru8()
+            atom["data"]["bit_depth"] = self.buf.ru8()
+            atom["data"]["chroma_subsampling"] = self.buf.ru8()
+            atom["data"]["video_full_range_flag"] = self.buf.ru8()
             atom["data"]["reserved"] = self.buf.rh(3)
         elif typ == "trex":
             self.read_version(atom)
@@ -471,7 +471,7 @@ class Mp4Module(module.RuminantModule):
             self.read_version(atom)
             atom["data"]["sequence_number"] = self.buf.ru32()
         elif typ == "tfhd":
-            version = self.buf.read(1)[0]
+            version = self.buf.ru8()
             atom["data"]["version"] = version
             flags = self.buf.ru24()
             atom["data"]["flags"] = {
@@ -501,7 +501,7 @@ class Mp4Module(module.RuminantModule):
             atom["data"]["baseMediaDecodeTime"] = int.from_bytes(
                 self.buf.read(4 if version == 0 else 8), "big")
         elif typ == "trun":
-            version = self.buf.read(1)[0]
+            version = self.buf.ru8()
             atom["data"]["version"] = version
             flags = self.buf.ru24()
             atom["data"]["flags"] = {
@@ -537,7 +537,7 @@ class Mp4Module(module.RuminantModule):
             atom["data"]["vertresolution"] = self.buf.ru32()
             atom["data"]["reserved3"] = self.buf.rh(4)
             atom["data"]["frame_count"] = self.buf.ru16()
-            name_length = self.buf.read(1)[0]
+            name_length = self.buf.ru8()
             name = self.buf.read(31)
             atom["data"]["compressorname"] = name[:name_length].decode("utf-8")
             atom["data"]["depth"] = self.buf.ru16()
@@ -545,29 +545,29 @@ class Mp4Module(module.RuminantModule):
 
             self.read_more(atom)
         elif typ == "hvcC":
-            version = self.buf.read(1)[0]
+            version = self.buf.ru8()
             atom["data"]["version"] = version
             atom["data"]["profile_space,tier_flag,profile_idc"] = (
-                self.buf.read(1)[0])
+                self.buf.ru8())
             atom["data"]["profile_compatibility_flags"] = self.buf.ru32()
             atom["data"]["constraint_indicator_flags"] = int.from_bytes(
                 self.buf.read(6), "big")
-            atom["data"]["level_idc"] = self.buf.read(1)[0]
+            atom["data"]["level_idc"] = self.buf.ru8()
             atom["data"]["min_spatial_segmentation_idc"] = self.buf.ru16()
-            atom["data"]["parallelismType"] = self.buf.read(1)[0]
-            atom["data"]["chromaFormat"] = self.buf.read(1)[0]
-            atom["data"]["bitDepthLumaMinus8"] = self.buf.read(1)[0]
-            atom["data"]["bitDepthChromaMinus8"] = self.buf.read(1)[0]
+            atom["data"]["parallelismType"] = self.buf.ru8()
+            atom["data"]["chromaFormat"] = self.buf.ru8()
+            atom["data"]["bitDepthLumaMinus8"] = self.buf.ru8()
+            atom["data"]["bitDepthChromaMinus8"] = self.buf.ru8()
             atom["data"]["avgFrameRate"] = self.buf.rfp16()
             atom["data"]["constantFrameRate,numTemporalLayers"] = (
-                self.buf.read(1)[0])
-            atom["data"]["numOfArrays"] = self.buf.read(1)[0]
+                self.buf.ru8())
+            atom["data"]["numOfArrays"] = self.buf.ru8()
 
             atom["data"]["arrays"] = []
             for i in range(0, atom["data"]["numOfArrays"]):
                 array = {}
                 array["array_completeness,reserved,NAL_unit_type"] = (
-                    self.buf.read(1)[0])
+                    self.buf.ru8())
                 array["numNalus"] = self.buf.ru16()
                 array["nalus"] = []
                 for j in range(0, array["numNalus"]):
@@ -605,6 +605,15 @@ class Mp4Module(module.RuminantModule):
             atom["data"]["greatestDecodeToDisplayDelta"] = self.buf.ru32()
             atom["data"]["compositionStartTime"] = self.buf.ru32()
             atom["data"]["compositionEndTime"] = self.buf.ru32()
+        elif typ == "senc":
+            version = self.buf.ru8()
+            atom["data"]["version"] = version
+            flags = self.buf.ru24()
+            atom["data"]["flags"] = {
+                "raw": flags,
+                "use-subsample-encryption": bool(flags & 2)
+            }
+            atom["data"]["sample-count"] = self.buf.ru32()
         elif typ[0] == "©" or typ == "iods":
             atom["data"]["payload"] = self.buf.readunit().hex()
         elif typ[0] == "\x00" or typ == "mdat":
@@ -656,14 +665,14 @@ class Mp4Module(module.RuminantModule):
         while self.buf.unit > 0:
             t = 0
             while True:
-                b = self.buf.read(1)[0]
+                b = self.buf.ru8()
                 t += b
                 if b != 0xff:
                     break
 
             l = 0
             while True:
-                b = self.buf.read(1)[0]
+                b = self.buf.ru8()
                 l += b
                 if b != 0xff:
                     break
@@ -713,7 +722,7 @@ class Mp4Module(module.RuminantModule):
             self.buf.pushunit()
             self.buf.setunit(length - 1)
 
-            t = self.buf.read(1)[0] & 0b00011111
+            t = self.buf.ru8() & 0b00011111
 
             if t == 6:
                 self.parse_sei(mdat["data"]["sei"])
@@ -729,6 +738,10 @@ class Mp4Module(module.RuminantModule):
         if stream_type is None:
             return
 
-        match stream_type:
-            case "avc1":
-                self.parse_mdat_avc1(atoms)
+        try:
+            match stream_type:
+                case "avc1":
+                    self.parse_mdat_avc1(atoms)
+        except Exception:
+            # sei parsing can fail with cenc extensions
+            pass
