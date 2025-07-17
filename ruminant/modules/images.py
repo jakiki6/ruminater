@@ -689,7 +689,50 @@ class JPEGModule(module.RuminantModule):
                 chunk["data"]["transform"] = self.buf.ru8()
             elif typ & 0xF0 == 0xE0:
                 chunk["data"]["payload"] = self.buf.readunit().hex()
+            elif typ == 0xC0:
+                chunk["data"]["sample-precision"] = self.buf.ru8()
+                chunk["data"]["height"] = self.buf.ru16()
+                chunk["data"]["width"] = self.buf.ru16()
+                component_count = self.buf.ru8()
+                chunk["data"]["component-count"] = component_count
+                chunk["data"]["components"] = []
+                for i in range(0, component_count):
+                    component = {}
+
+                    component["id"] = self.buf.ru8()
+
+                    sampling_factors = self.buf.ru8()
+                    component["sampling-factors"] = {
+                        "raw": sampling_factors,
+                        "horizontal": (sampling_factors & 0xf0) >> 4,
+                        "vertical": sampling_factors & 0x0f
+                    }
+
+                    component["quantization-table-id"] = self.buf.ru8()
+
+                    chunk["data"]["components"].append(component)
             elif typ == 0xDA:
+                component_count = self.buf.ru8()
+                chunk["data"]["component-count"] = component_count
+                chunk["data"]["components"] = []
+                for i in range(0, component_count):
+                    component = {}
+
+                    component["id"] = self.buf.ru8()
+
+                    huffman_table_selector = self.buf.ru8()
+                    component["huffman-table-selector"] = {
+                        "raw": huffman_table_selector,
+                        "dc": (huffman_table_selector & 0xf0) >> 4,
+                        "ac": huffman_table_selector & 0x0f
+                    }
+
+                    chunk["data"]["components"].append(component)
+
+                chunk["data"]["spectral-selection-start"] = self.buf.ru8()
+                chunk["data"]["spectral-selection-end"] = self.buf.ru8()
+                chunk["data"]["successive-approximation"] = self.buf.ru8()
+
                 image_length = 0
                 self.buf.resetunit()
 
