@@ -3,6 +3,7 @@ import struct
 
 
 class Buf(object):
+
     def __init__(self, source):
         if isinstance(source, io.IOBase):
             self._file = source
@@ -104,7 +105,7 @@ class Buf(object):
             self.unit = max(self.unit - len(line), 0)
             self._checkunit()
 
-        if len(line) >= 2 and line[-2] == 0x0D:
+        if len(line) >= 2 and line[-2] == 0x0d:
             line = line[:-2] + b"\n"
 
         return line
@@ -122,6 +123,7 @@ class Buf(object):
         assert size <= self.size(), "sub buffer is bigger than host buffer"
 
         class SubWrapper(object):
+
             def __enter__(self2):
                 self2._offset = self._offset
                 self2._size = self._size

@@ -134,9 +134,8 @@ class IPTCIIMModule(module.RuminantModule):
 
             resource_id = self.buf.ru16()
             block["resource-id"] = (
-                self.RESOURCE_IDS.get(resource_id, "Unknown")
-                + f" (0x{hex(resource_id)[2:].zfill(4)})"
-            )
+                self.RESOURCE_IDS.get(resource_id, "Unknown") +
+                f" (0x{hex(resource_id)[2:].zfill(4)})")
             name_length = self.buf.ru8()
             block["resource-name"] = self.buf.rs(name_length)
             if name_length % 2 == 0:
@@ -145,7 +144,7 @@ class IPTCIIMModule(module.RuminantModule):
             data_length = self.buf.ru32()
             block["data-length"] = data_length
 
-            self.buf.setunit((data_length + 1) & 0xFFFFFFFE)
+            self.buf.setunit((data_length + 1) & 0xfffffffe)
 
             block["data"] = {}
             match resource_id:
@@ -222,6 +221,7 @@ class IPTCIIMModule(module.RuminantModule):
 
 @module.register
 class ICCProfileModule(module.RuminantModule):
+
     def read_tag(self, offset, length):
         tag = {}
 
@@ -236,13 +236,11 @@ class ICCProfileModule(module.RuminantModule):
             match typ:
                 case "text":
                     tag["data"]["string"] = self.buf.readunit()[:-1].decode(
-                        "ascii"
-                    )
+                        "ascii")
                 case "desc":
                     desc_length = self.buf.ru32()
                     tag["data"]["string"] = self.buf.rs(
-                        desc_length - 1, "ascii"
-                    )
+                        desc_length - 1, "ascii")
                 case "XYZ ":
                     tag["data"]["x"] = self.buf.rsfp32()
                     tag["data"]["y"] = self.buf.rsfp32()
@@ -335,8 +333,7 @@ class ICCProfileModule(module.RuminantModule):
                             self.buf.resetunit()
                             self.buf.seek(record["offset"] + offset)
                             record["text"] = self.buf.rs(
-                                record["length"], "utf-16be"
-                            )
+                                record["length"], "utf-16be")
 
                         tag["data"]["records"].append(record)
                 case "para":
@@ -368,37 +365,28 @@ class ICCProfileModule(module.RuminantModule):
                     match function_type:
                         case 0:
                             tag["data"]["formula"][
-                                f"X >= {-b / a}"
-                            ] = f"Y = X ^ {g}"
+                                f"X >= {-b / a}"] = f"Y = X ^ {g}"
                             tag["data"]["formula"][
-                                f"X < {-b / a}"
-                            ] = f"Y = X ^ {g}"
+                                f"X < {-b / a}"] = f"Y = X ^ {g}"
                         case 1:
                             tag["data"]["formula"][
-                                f"X >= {-b / a}"
-                            ] = f"Y = ({a} * X + {b}) ^ {g}"
+                                f"X >= {-b / a}"] = f"Y = ({a} * X + {b}) ^ {g}"
                             tag["data"]["formula"][f"X < {-b / a}"] = "Y = 0"
                         case 2:
                             tag["data"]["formula"][
-                                f"X >= {d}"
-                            ] = f"Y = ({a} * X + {b}) ^ {g} + {c}"
+                                f"X >= {d}"] = f"Y = ({a} * X + {b}) ^ {g} + {c}"
                             tag["data"]["formula"][
-                                f"X < {-b / a}"
-                            ] = f"Y = {c}"  # noqa: E501
+                                f"X < {-b / a}"] = f"Y = {c}"  # noqa: E501
                         case 3:
                             tag["data"]["formula"][
-                                f"X >= {d}"
-                            ] = f"Y = ({a} * X + {b}) ^ {g}"
+                                f"X >= {d}"] = f"Y = ({a} * X + {b}) ^ {g}"
                             tag["data"]["formula"][
-                                f"X < {-b / a}"
-                            ] = f"Y = {c} * X"
+                                f"X < {-b / a}"] = f"Y = {c} * X"
                         case 4:
                             tag["data"]["formula"][
-                                f"X >= {d}"
-                            ] = f"Y = ({a} * X + {b}) ^ {g} + {c}"
+                                f"X >= {d}"] = f"Y = ({a} * X + {b}) ^ {g} + {c}"
                             tag["data"]["formula"][
-                                f"X < {-b / a}"
-                            ] = f"Y = {c} * X + {f}"
+                                f"X < {-b / a}"] = f"Y = {c} * X + {f}"
                         case _:
                             tag["data"]["formula"]["X >= ?"] = "Y = ?"
                             tag["data"]["formula"]["X < ?"] = "Y = ?"
@@ -422,27 +410,18 @@ class ICCProfileModule(module.RuminantModule):
 
         meta["data"]["cmm-type"] = self.buf.rs(4)
         meta["data"][
-            "version"
-        ] = f"{self.buf.ru8()}.{self.buf.rh(3).rstrip('0')}"
+            "version"] = f"{self.buf.ru8()}.{self.buf.rh(3).rstrip('0')}"
         meta["data"]["class"] = self.buf.rs(4)
         meta["data"]["color-space"] = self.buf.rs(4)
         meta["data"]["profile-connection-space"] = self.buf.rs(4)
         year, month, day, hour, minute, second = [
             self.buf.ru16() for _ in range(0, 6)
         ]
-        meta["data"]["date"] = (
-            str(year).zfill(4)
-            + "-"
-            + str(month).zfill(2)
-            + "-"
-            + str(day).zfill(2)
-            + "T"
-            + str(hour).zfill(2)
-            + ":"
-            + str(minute).zfill(2)
-            + ":"
-            + str(second).zfill(2)
-        )
+        meta["data"]["date"] = (str(year).zfill(4) + "-" +
+                                str(month).zfill(2) + "-" + str(day).zfill(2) +
+                                "T" + str(hour).zfill(2) + ":" +
+                                str(minute).zfill(2) + ":" +
+                                str(second).zfill(2))
         meta["data"]["file-signature"] = self.buf.rs(4)
         meta["data"]["platform"] = self.buf.rs(4)
         meta["data"]["flags"] = self.buf.rh(4)
@@ -485,115 +464,115 @@ class ICCProfileModule(module.RuminantModule):
 @module.register
 class JPEGModule(module.RuminantModule):
     HAS_PAYLOAD = [
-        0xC0,  # SOF0: Baseline DCT
-        0xC1,  # SOF1: Extended sequential DCT
-        0xC2,  # SOF2: Progressive DCT
-        0xC3,  # SOF3: Lossless sequential
-        0xC5,  # SOF5: Differential sequential DCT
-        0xC6,  # SOF6: Differential progressive DCT
-        0xC7,  # SOF7: Differential lossless
-        0xC9,  # SOF9: Extended sequential, arithmetic coding
-        0xCA,  # SOF10: Progressive, arithmetic coding
-        0xCB,  # SOF11: Lossless, arithmetic coding
-        0xCD,  # SOF13: Differential sequential, arithmetic coding
-        0xCE,  # SOF14: Differential progressive, arithmetic coding
-        0xCF,  # SOF15: Differential lossless, arithmetic coding
-        0xC4,  # DHT: Define Huffman Table
-        0xDB,  # DQT: Define Quantization Table
-        0xDD,  # DRI: Define Restart Interval
-        0xDA,  # SOS: Start of Scan
-        0xE0,  # APP0
-        0xE1,  # APP1
-        0xE2,  # APP2
-        0xE3,  # APP3
-        0xE4,  # APP4
-        0xE5,  # APP5
-        0xE6,  # APP6
-        0xE7,  # APP7
-        0xE8,  # APP8
-        0xE9,  # APP9
-        0xEA,  # APP10
-        0xEB,  # APP11
-        0xEC,  # APP12
-        0xED,  # APP13
-        0xEE,  # APP14
-        0xEF,  # APP15
-        0xFE,  # COM: Comment
-        0xF0,  # JPG0 (JPEG extensions, reserved)
-        0xF1,  # JPG1
-        0xF2,  # JPG2
-        0xF3,  # JPG3
-        0xF4,  # JPG4
-        0xF5,  # JPG5
-        0xF6,  # JPG6
-        0xF7,  # JPG7
-        0xF8,  # JPG8
-        0xF9,  # JPG9
-        0xFA,  # JPG10
-        0xFB,  # JPG11
-        0xFC,  # JPG12
-        0xFD,  # JPG13
+        0xc0,  # SOF0: Baseline DCT
+        0xc1,  # SOF1: Extended sequential DCT
+        0xc2,  # SOF2: Progressive DCT
+        0xc3,  # SOF3: Lossless sequential
+        0xc5,  # SOF5: Differential sequential DCT
+        0xc6,  # SOF6: Differential progressive DCT
+        0xc7,  # SOF7: Differential lossless
+        0xc9,  # SOF9: Extended sequential, arithmetic coding
+        0xca,  # SOF10: Progressive, arithmetic coding
+        0xcb,  # SOF11: Lossless, arithmetic coding
+        0xcd,  # SOF13: Differential sequential, arithmetic coding
+        0xce,  # SOF14: Differential progressive, arithmetic coding
+        0xcf,  # SOF15: Differential lossless, arithmetic coding
+        0xc4,  # DHT: Define Huffman Table
+        0xdb,  # DQT: Define Quantization Table
+        0xdd,  # DRI: Define Restart Interval
+        0xda,  # SOS: Start of Scan
+        0xe0,  # APP0
+        0xe1,  # APP1
+        0xe2,  # APP2
+        0xe3,  # APP3
+        0xe4,  # APP4
+        0xe5,  # APP5
+        0xe6,  # APP6
+        0xe7,  # APP7
+        0xe8,  # APP8
+        0xe9,  # APP9
+        0xea,  # APP10
+        0xeb,  # APP11
+        0xec,  # APP12
+        0xed,  # APP13
+        0xee,  # APP14
+        0xef,  # APP15
+        0xfe,  # COM: Comment
+        0xf0,  # JPG0 (JPEG extensions, reserved)
+        0xf1,  # JPG1
+        0xf2,  # JPG2
+        0xf3,  # JPG3
+        0xf4,  # JPG4
+        0xf5,  # JPG5
+        0xf6,  # JPG6
+        0xf7,  # JPG7
+        0xf8,  # JPG8
+        0xf9,  # JPG9
+        0xfa,  # JPG10
+        0xfb,  # JPG11
+        0xfc,  # JPG12
+        0xfd,  # JPG13
     ]
 
     MARKER_NAME = {
-        0xD8: "SOI",
-        0xD9: "EOI",
-        0xC0: "SOF0",
-        0xC1: "SOF1",
-        0xC2: "SOF2",
-        0xC3: "SOF3",
-        0xC5: "SOF5",
-        0xC6: "SOF6",
-        0xC7: "SOF7",
-        0xC9: "SOF9",
-        0xCA: "SOF10",
-        0xCB: "SOF11",
-        0xCD: "SOF13",
-        0xCE: "SOF14",
-        0xCF: "SOF15",
-        0xC4: "DHT",
-        0xDB: "DQT",
-        0xDD: "DRI",
-        0xDA: "SOS",
-        0xFE: "COM",
-        0xE0: "APP0",
-        0xE1: "APP1",
-        0xE2: "APP2",
-        0xE3: "APP3",
-        0xE4: "APP4",
-        0xE5: "APP5",
-        0xE6: "APP6",
-        0xE7: "APP7",
-        0xE8: "APP8",
-        0xE9: "APP9",
-        0xEA: "APP10",
-        0xEB: "APP11",
-        0xEC: "APP12",
-        0xED: "APP13",
-        0xEE: "APP14",
-        0xEF: "APP15",
-        0xF0: "JPG0",
-        0xF1: "JPG1",
-        0xF2: "JPG2",
-        0xF3: "JPG3",
-        0xF4: "JPG4",
-        0xF5: "JPG5",
-        0xF6: "JPG6",
-        0xF7: "JPG7",
-        0xF8: "JPG8",
-        0xF9: "JPG9",
-        0xFA: "JPG10",
-        0xFB: "JPG11",
-        0xFC: "JPG12",
-        0xFD: "JPG13",
-        0xD0: "RST0",
-        0xD1: "RST1",
-        0xD2: "RST2",
-        0xD3: "RST3",
-        0xD4: "RST4",
-        0xD5: "RST5",
-        0xD6: "RST6",
-        0xD7: "RST7",
+        0xd8: "SOI",
+        0xd9: "EOI",
+        0xc0: "SOF0",
+        0xc1: "SOF1",
+        0xc2: "SOF2",
+        0xc3: "SOF3",
+        0xc5: "SOF5",
+        0xc6: "SOF6",
+        0xc7: "SOF7",
+        0xc9: "SOF9",
+        0xca: "SOF10",
+        0xcb: "SOF11",
+        0xcd: "SOF13",
+        0xce: "SOF14",
+        0xcf: "SOF15",
+        0xc4: "DHT",
+        0xdb: "DQT",
+        0xdd: "DRI",
+        0xda: "SOS",
+        0xfe: "COM",
+        0xe0: "APP0",
+        0xe1: "APP1",
+        0xe2: "APP2",
+        0xe3: "APP3",
+        0xe4: "APP4",
+        0xe5: "APP5",
+        0xe6: "APP6",
+        0xe7: "APP7",
+        0xe8: "APP8",
+        0xe9: "APP9",
+        0xea: "APP10",
+        0xeb: "APP11",
+        0xec: "APP12",
+        0xed: "APP13",
+        0xee: "APP14",
+        0xef: "APP15",
+        0xf0: "JPG0",
+        0xf1: "JPG1",
+        0xf2: "JPG2",
+        0xf3: "JPG3",
+        0xf4: "JPG4",
+        0xf5: "JPG5",
+        0xf6: "JPG6",
+        0xf7: "JPG7",
+        0xf8: "JPG8",
+        0xf9: "JPG9",
+        0xfa: "JPG10",
+        0xfb: "JPG11",
+        0xfc: "JPG12",
+        0xfd: "JPG13",
+        0xd0: "RST0",
+        0xd1: "RST1",
+        0xd2: "RST2",
+        0xd3: "RST3",
+        0xd4: "RST4",
+        0xd5: "RST5",
+        0xd6: "RST6",
+        0xd7: "RST7",
         0x01: "TEM",
     }
 
@@ -609,12 +588,10 @@ class JPEGModule(module.RuminantModule):
         while self.buf.available() and not should_break:
             chunk = {}
 
-            assert self.buf.ru8() == 0xFF, "wrong marker prefix"
+            assert self.buf.ru8() == 0xff, "wrong marker prefix"
             typ = self.buf.ru8()
-            chunk["type"] = (
-                self.MARKER_NAME.get(typ, "UNK")
-                + f" (0x{hex(typ)[2:].zfill(2)})"
-            )
+            chunk["type"] = (self.MARKER_NAME.get(typ, "UNK") +
+                             f" (0x{hex(typ)[2:].zfill(2)})")
 
             if typ in self.HAS_PAYLOAD:
                 length = self.buf.ru16() - 2
@@ -626,11 +603,10 @@ class JPEGModule(module.RuminantModule):
             chunk["length"] = length
 
             chunk["data"] = {}
-            if typ == 0xE0 and self.buf.peek(5) == b"JFIF\x00":
+            if typ == 0xe0 and self.buf.peek(5) == b"JFIF\x00":
                 self.buf.skip(5)
-                chunk["data"]["version"] = (
-                    str(self.buf.ru8()) + "." + str(self.buf.ru8())
-                )
+                chunk["data"]["version"] = (str(self.buf.ru8()) + "." +
+                                            str(self.buf.ru8()))
                 units = self.buf.ru8()
                 chunk["data"]["units"] = {
                     "raw": units,
@@ -645,11 +621,11 @@ class JPEGModule(module.RuminantModule):
                 chunk["data"]["thumbnail-width"] = self.buf.ru8()
                 chunk["data"]["thumbnail-height"] = self.buf.ru8()
                 chunk["data"]["thumbnail-data-length"] = self.buf.unit
-            elif typ == 0xE1 and self.buf.peek(6) == b"Exif\x00\x00":
+            elif typ == 0xe1 and self.buf.peek(6) == b"Exif\x00\x00":
                 self.buf.skip(6)
                 with self.buf.subunit():
                     chunk["data"]["tiff"] = chew(self.buf)
-            elif typ == 0xE1 and self.buf.peek(4) == b"http":
+            elif typ == 0xe1 and self.buf.peek(4) == b"http":
                 raw = False
 
                 with self.buf:
@@ -664,8 +640,7 @@ class JPEGModule(module.RuminantModule):
                             self.buf.skip(40)
 
                         xmp = utils.xml_to_dict(
-                            self.buf.readunit().decode("utf-8")
-                        )
+                            self.buf.readunit().decode("utf-8"))
                         chunk["data"]["namespace"] = ns
                         chunk["data"]["xmp"] = xmp
                     except Exception:
@@ -673,23 +648,22 @@ class JPEGModule(module.RuminantModule):
 
                 if raw:
                     chunk["data"]["payload"] = self.buf.readunit().decode(
-                        "latin-1"
-                    )
-            elif typ == 0xE2 and self.buf.peek(12) == b"ICC_PROFILE\x00":
+                        "latin-1")
+            elif typ == 0xe2 and self.buf.peek(12) == b"ICC_PROFILE\x00":
                 with self.buf.subunit():
                     chunk["data"]["icc-profile"] = chew(self.buf)["data"]
-            elif typ == 0xED and self.buf.peek(18) == b"Photoshop 3.0\x008BIM":
+            elif typ == 0xed and self.buf.peek(18) == b"Photoshop 3.0\x008BIM":
                 with self.buf.subunit():
                     chunk["data"]["iptc"] = chew(self.buf)["data"]
-            elif typ == 0xEE and self.buf.peek(5) == b"Adobe":
+            elif typ == 0xee and self.buf.peek(5) == b"Adobe":
                 chunk["data"]["identifier"] = self.buf.rs(5)
                 chunk["data"]["pre-defined"] = self.buf.rh(1)
                 chunk["data"]["flags0"] = self.buf.rh(2)
                 chunk["data"]["flags1"] = self.buf.rh(2)
                 chunk["data"]["transform"] = self.buf.ru8()
-            elif typ & 0xF0 == 0xE0:
+            elif typ & 0xf0 == 0xe0:
                 chunk["data"]["payload"] = self.buf.readunit().hex()
-            elif typ == 0xC0:
+            elif typ == 0xc0:
                 chunk["data"]["sample-precision"] = self.buf.ru8()
                 chunk["data"]["height"] = self.buf.ru16()
                 chunk["data"]["width"] = self.buf.ru16()
@@ -705,13 +679,13 @@ class JPEGModule(module.RuminantModule):
                     component["sampling-factors"] = {
                         "raw": sampling_factors,
                         "horizontal": (sampling_factors & 0xf0) >> 4,
-                        "vertical": sampling_factors & 0x0f
+                        "vertical": sampling_factors & 0x0f,
                     }
 
                     component["quantization-table-id"] = self.buf.ru8()
 
                     chunk["data"]["components"].append(component)
-            elif typ == 0xDA:
+            elif typ == 0xda:
                 component_count = self.buf.ru8()
                 chunk["data"]["component-count"] = component_count
                 chunk["data"]["components"] = []
@@ -724,7 +698,7 @@ class JPEGModule(module.RuminantModule):
                     component["huffman-table-selector"] = {
                         "raw": huffman_table_selector,
                         "dc": (huffman_table_selector & 0xf0) >> 4,
-                        "ac": huffman_table_selector & 0x0f
+                        "ac": huffman_table_selector & 0x0f,
                     }
 
                     chunk["data"]["components"].append(component)
@@ -758,7 +732,7 @@ class JPEGModule(module.RuminantModule):
                         break
 
                 chunk["data"]["image-length"] = image_length
-            elif typ == 0xD9:
+            elif typ == 0xd9:
                 should_break = True
 
             meta["chunks"].append(chunk)
@@ -771,6 +745,7 @@ class JPEGModule(module.RuminantModule):
 
 @module.register
 class PNGModule(module.RuminantModule):
+
     def identify(buf):
         return buf.peek(8) == b"\x89PNG\r\n\x1a\n"
 
@@ -802,9 +777,11 @@ class PNGModule(module.RuminantModule):
             data, crc = data[:-4], data[-4:]
 
             chunk["crc"] = {
-                "value": crc.hex(),
-                "correct": int.from_bytes(crc, "big")
-                == zlib.crc32(chunk_type + data) & 0xFFFFFFFF,
+                "value":
+                crc.hex(),
+                "correct":
+                int.from_bytes(crc, "big") == zlib.crc32(chunk_type + data)
+                & 0xffffffff,
             }
 
             chunk["data"] = {}
@@ -1067,15 +1044,11 @@ class TIFFModule(module.RuminantModule):
                 tag = {}
 
                 tag_id = self.buf.ru16l() if le else self.buf.ru16()
-                tag["id"] = (
-                    self.TAG_IDS.get(tag_id, "Unknown")
-                    + f" (0x{hex(tag_id)[2:].zfill(4)})"
-                )
+                tag["id"] = (self.TAG_IDS.get(tag_id, "Unknown") +
+                             f" (0x{hex(tag_id)[2:].zfill(4)})")
                 field_type = self.buf.ru16l() if le else self.buf.ru16()
-                tag["type"] = (
-                    self.FIELD_TYPES.get(field_type, "Unknown")
-                    + f" (0x{hex(field_type)[2:].zfill(4)})"
-                )
+                tag["type"] = (self.FIELD_TYPES.get(field_type, "Unknown") +
+                               f" (0x{hex(field_type)[2:].zfill(4)})")
                 count = self.buf.ru32l() if le else self.buf.ru32()
                 tag["count"] = count
                 offset_field_offset = self.buf.tell()
@@ -1084,11 +1057,9 @@ class TIFFModule(module.RuminantModule):
 
                 tag["values"] = []
                 with self.buf:
-                    if (
-                        (field_type in (1, 2) and count <= 4)
-                        or (field_type in (3, 8, 11) and count <= 2)
-                        or (field_type in (4, 9, 12) and count <= 1)
-                    ):
+                    if ((field_type in (1, 2) and count <= 4)
+                            or (field_type in (3, 8, 11) and count <= 2)
+                            or (field_type in (4, 9, 12) and count <= 1)):
                         self.buf.seek(offset_field_offset)
                     else:
                         self.buf.seek(tag_offset)
@@ -1097,8 +1068,7 @@ class TIFFModule(module.RuminantModule):
                         match field_type:
                             case 1:
                                 tag["values"].append(
-                                    self.buf.ru8l() if le else self.buf.ru8()
-                                )
+                                    self.buf.ru8l() if le else self.buf.ru8())
                             case 2:
                                 string = b""
                                 while self.buf.peek(1)[0]:
@@ -1110,61 +1080,48 @@ class TIFFModule(module.RuminantModule):
                                 if count <= 0:
                                     break
                             case 3:
-                                tag["values"].append(
-                                    self.buf.ru16l() if le else self.buf.ru16()
-                                )
+                                tag["values"].append(self.buf.ru16l(
+                                ) if le else self.buf.ru16())
                             case 4:
-                                value = (
-                                    self.buf.ru32l() if le else self.buf.ru32()
-                                )
+                                value = (self.buf.ru32l()
+                                         if le else self.buf.ru32())
                                 tag["values"].append(value)
 
                                 if "IFD" in tag["id"]:
                                     offset_queue.append(value)
                             case 5:
                                 value = {}
-                                value["numerator"] = (
-                                    self.buf.ru32l() if le else self.buf.ru32()
-                                )
-                                value["denominator"] = (
-                                    self.buf.ru32l() if le else self.buf.ru32()
-                                )
+                                value["numerator"] = (self.buf.ru32l() if le
+                                                      else self.buf.ru32())
+                                value["denominator"] = (self.buf.ru32l() if le
+                                                        else self.buf.ru32())
                                 value["rational_approx"] = (
-                                    value["numerator"] / value["denominator"]
-                                )
+                                    value["numerator"] / value["denominator"])
                                 tag["values"].append(value)
                             case 6:
                                 tag["values"].append(
-                                    self.buf.ri8l() if le else self.buf.ri8()
-                                )
+                                    self.buf.ri8l() if le else self.buf.ri8())
                             case 8:
-                                tag["values"].append(
-                                    self.buf.ri16l() if le else self.buf.ri16()
-                                )
+                                tag["values"].append(self.buf.ri16l(
+                                ) if le else self.buf.ri16())
                             case 9:
-                                tag["values"].append(
-                                    self.buf.ri32l() if le else self.buf.ri32()
-                                )
+                                tag["values"].append(self.buf.ri32l(
+                                ) if le else self.buf.ri32())
                             case 10:
                                 value = {}
-                                value["numerator"] = (
-                                    self.buf.ri32l() if le else self.buf.ri32()
-                                )
-                                value["denominator"] = (
-                                    self.buf.ri32l() if le else self.buf.ri32()
-                                )
+                                value["numerator"] = (self.buf.ri32l() if le
+                                                      else self.buf.ri32())
+                                value["denominator"] = (self.buf.ri32l() if le
+                                                        else self.buf.ri32())
                                 value["rational_approx"] = (
-                                    value["numerator"] / value["denominator"]
-                                )
+                                    value["numerator"] / value["denominator"])
                                 tag["values"].append(value)
                             case 11:
-                                tag["values"].append(
-                                    self.buf.rf32l() if le else self.buf.rf32()
-                                )
+                                tag["values"].append(self.buf.rf32l(
+                                ) if le else self.buf.rf32())
                             case 12:
-                                tag["values"].append(
-                                    self.buf.rf64l() if le else self.buf.rf64()
-                                )
+                                tag["values"].append(self.buf.rf64l(
+                                ) if le else self.buf.rf64())
                             case _:
                                 tag["unknown"] = True
 
@@ -1175,7 +1132,8 @@ class TIFFModule(module.RuminantModule):
                     case 514:
                         thumbnail_length = tag["values"][0]
 
-                if thumbnail_tag is not None and thumbnail_offset is not None and thumbnail_length is not None:
+                if (thumbnail_tag is not None and thumbnail_offset is not None
+                        and thumbnail_length is not None):
                     with self.buf:
                         self.buf.seek(thumbnail_offset)
 

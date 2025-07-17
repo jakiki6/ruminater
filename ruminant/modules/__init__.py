@@ -3,6 +3,7 @@ from ..buf import Buf
 
 
 class EntryModule(module.RuminantModule):
+
     def chew(self):
         meta = {}
 

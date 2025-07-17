@@ -9,6 +9,7 @@ from io import BufferedReader
 
 @module.register
 class DocxModule(module.RuminantModule):
+
     def identify(buf):
         return False  # TODO
 
@@ -72,8 +73,7 @@ class PdfModule(module.RuminantModule):
         meta["type"] = "pdf"
 
         meta["version"] = (
-            self.buf.readline()[:-1].decode("latin-1").split("-")[1]
-        )
+            self.buf.readline()[:-1].decode("latin-1").split("-")[1])
         meta["binary_comment"] = self.buf.readline()[:-1].hex()
 
         meta["objects"] = []
@@ -89,9 +89,11 @@ class PdfModule(module.RuminantModule):
                 d = self.read_dict()
                 self.buf.readline()
 
-                meta["objects"].append(
-                    {"id": obj_id, "generation": obj_gen, "dictionary": d}
-                )
+                meta["objects"].append({
+                    "id": obj_id,
+                    "generation": obj_gen,
+                    "dictionary": d
+                })
 
                 if "Length" in d:
                     self.buf.readline()
@@ -110,25 +112,19 @@ class PdfModule(module.RuminantModule):
                 break
 
         if self.buf.peek(1) == b"0":
-            xref_count = int(
-                self.buf.readline()
-                .decode("latin-1")
-                .split(" ")[1]
-                .split("\n")[0]
-            )
+            xref_count = int(self.buf.readline().decode("latin-1").split(" ")
+                             [1].split("\n")[0])
 
             meta["xref_count"] = xref_count
             meta["xrefs"] = []
             for i in range(0, xref_count):
                 line = self.buf.readline()[:-1].decode("latin-1").split(" ")
 
-                meta["xrefs"].append(
-                    {
-                        "offset": int(line[0]),
-                        "generation": int(line[1]),
-                        "in-use": line[2] == "n",
-                    }
-                )
+                meta["xrefs"].append({
+                    "offset": int(line[0]),
+                    "generation": int(line[1]),
+                    "in-use": line[2] == "n",
+                })
 
             self.buf.readline()
 
@@ -181,8 +177,7 @@ class PdfModule(module.RuminantModule):
             if key is None:
                 if not token.startswith("/"):
                     raise ValueError(
-                        f"Expected key starting with /, got {token}"
-                    )
+                        f"Expected key starting with /, got {token}")
                 key = token[1:]
             else:
                 value = cls.parse_value(token, tokens)

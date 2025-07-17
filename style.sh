@@ -1,4 +1,4 @@
 #!/bin/sh
 
-black -l 79 .
+yapf --recursive --in-place .
 flake8 .
