@@ -651,10 +651,10 @@ class JPEGModule(module.RuminantModule):
                         "latin-1")
             elif typ == 0xe2 and self.buf.peek(12) == b"ICC_PROFILE\x00":
                 with self.buf.subunit():
-                    chunk["data"]["icc-profile"] = chew(self.buf)["data"]
+                    chunk["data"]["icc-profile"] = chew(self.buf)
             elif typ == 0xed and self.buf.peek(18) == b"Photoshop 3.0\x008BIM":
                 with self.buf.subunit():
-                    chunk["data"]["iptc"] = chew(self.buf)["data"]
+                    chunk["data"]["iptc"] = chew(self.buf)
             elif typ == 0xee and self.buf.peek(5) == b"Adobe":
                 chunk["data"]["identifier"] = self.buf.rs(5)
                 chunk["data"]["pre-defined"] = self.buf.rh(1)
@@ -785,8 +785,8 @@ class PNGModule(module.RuminantModule):
             }
 
             chunk["data"] = {}
-            match chunk_type:
-                case b"IHDR":
+            match chunk_type.decode("latin-1"):
+                case "IHDR":
                     chunk["data"]["width"] = self.buf.ru32()
                     chunk["data"]["height"] = self.buf.ru32()
                     chunk["data"]["bit-depth"] = self.buf.ru8()
@@ -794,9 +794,93 @@ class PNGModule(module.RuminantModule):
                     chunk["data"]["compression"] = self.buf.ru8()
                     chunk["data"]["filter-method"] = self.buf.ru8()
                     chunk["data"]["interlace-method"] = self.buf.ru8()
-                case b"eXIf":
+                case "eXIf":
                     with self.buf.sub(length):
                         chunk["data"]["tiff"] = chew(self.buf)
+                case "pHYs":
+                    chunk["data"]["width-pixels-per-unit"] = self.buf.ru32()
+                    chunk["data"]["height-pixels-per-unit"] = self.buf.ru32()
+                    unit = self.buf.ru8()
+                    chunk["data"]["unit"] = {
+                        "raw": unit,
+                        "name": {
+                            1: "Meters"
+                        }.get(unit, "Unknown")
+                    }
+                case "iCCP":
+                    chunk["data"]["profile-name"] = self.buf.rzs()
+
+                    compression_method = self.buf.ru8()
+                    match compression_method:
+                        case 0:
+                            chunk["data"]["compression-method"] = {
+                                "raw": 0,
+                                "name": "DEFLATE"
+                            }
+                            chunk["data"]["profile"] = chew(
+                                b"ICC_PROFILE\x00\x00\x00" +
+                                zlib.decompress(self.buf.readunit()))
+                        case _:
+                            chunk["data"]["compression-method"] = {
+                                "raw": compression_method,
+                                "name": "Unknown"
+                            }
+                case "iTXt":
+                    chunk["data"]["keyword"] = self.buf.rzs()
+
+                    compressed = bool(self.buf.ru8())
+                    chunk["data"]["compressed"] = compressed
+                    compression_method = self.buf.ru8()
+                    chunk["data"]["language-tag"] = self.buf.rzs()
+                    chunk["data"]["translated-keyword"] = self.buf.rzs()
+
+                    match compression_method:
+                        case 0:
+                            if compressed:
+                                chunk["data"]["compression-method"] = {
+                                    "raw": 0,
+                                    "name": "DEFLATE"
+                                }
+                                chunk["data"]["text"] = zlib.decompress(
+                                    self.buf.readunit())
+                            else:
+                                chunk["data"]["compression-method"] = {
+                                    "raw": 0,
+                                    "name": "Uncompressed"
+                                }
+                                chunk["data"]["text"] = self.buf.readunit()
+                        case _:
+                            chunk["data"]["compression-method"] = {
+                                "raw": compression_method,
+                                "name": "Unknown"
+                            }
+
+                    try:
+                        chunk["data"]["text"] = chunk["data"]["text"].decode(
+                            "utf-8")
+                    except UnicodeDecodeError:
+                        chunk["data"]["text"] = chunk["data"]["text"].decode(
+                            "latin-1")
+
+                    if chunk["data"]["keyword"] == "XML:com.adobe.xmp":
+                        chunk["data"]["text"] = utils.xml_to_dict(
+                            chunk["data"]["text"]
+                            [:chunk["data"]["text"].
+                             index("<?xpacket end=\"w\"?>") +
+                             19].encode("latin-1").decode("utf-8"))
+                case "cHRM":
+                    chunk["data"]["white"] = [
+                        self.buf.ru32() / 100000 for _ in range(0, 2)
+                    ]
+                    chunk["data"]["red"] = [
+                        self.buf.ru32() / 100000 for _ in range(0, 2)
+                    ]
+                    chunk["data"]["green"] = [
+                        self.buf.ru32() / 100000 for _ in range(0, 2)
+                    ]
+                    chunk["data"]["blue"] = [
+                        self.buf.ru32() / 100000 for _ in range(0, 2)
+                    ]
 
             meta["chunks"].append(chunk)
 

@@ -348,6 +348,26 @@ class Buf(object):
     def ps(self, length, encoding="utf-8"):
         return self.peek(length).decode(encoding)
 
+    def rzs(self, encoding="utf-8"):
+        s = b""
+        while self.pu8():
+            s += self.read(1)
+
+        self.skip(1)
+
+        return s.decode(encoding)
+
+    def pzs(self, encoding="utf-8"):
+        pos = self.tell()
+
+        s = b""
+        while self.pu8():
+            s += self._file.read(1)
+
+        self.seek(pos)
+
+        return s.decode(encoding)
+
     def __getattr__(self, name):
         # Delegate everything else to the underlying file
         return getattr(self._file, name)
