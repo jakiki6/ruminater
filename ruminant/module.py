@@ -6,6 +6,7 @@ def register(cls):
 
 
 class RuminantModule(object):
+
     def __init__(self, buf):
         self.buf = buf
 

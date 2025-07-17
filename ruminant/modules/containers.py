@@ -6,6 +6,7 @@ import zipfile
 
 @module.register
 class ZipModule(module.RuminantModule):
+
     def identify(buf):
         return buf.peek(4) == b"\x50\x4b\x03\x04"
 
