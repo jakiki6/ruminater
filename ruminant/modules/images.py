@@ -116,6 +116,112 @@ class IPTCIIMModule(module.RuminantModule):
         14: "Lab (Alt)",
     }
 
+    # not vetted yet, could be horribly wrong
+    RECORD_DATASET_NAMES = {
+        1: {
+            0: "Model Version",
+            5: "Destination",
+            20: "File Format",
+            22: "File Format Version",
+            30: "Service Identifier",
+            40: "Envelope Number",
+            50: "Product ID",
+            60: "Envelope Priority",
+            70: "Date Sent",
+            80: "Time Sent",
+            90: "Coded Character Set",
+            100: "UNO (Unique Name of Object)",
+            120: "ARM Identifier",
+            122: "ARM Version"
+        },
+        2: {
+            3: "Object Type Reference",
+            5: "Object Name",
+            7: "Edit Status",
+            8: "Editorial Update",
+            10: "Urgency",
+            12: "Subject Reference",
+            15: "Category",
+            20: "Supplemental Category",
+            22: "Fixture Identifier",
+            25: "Keywords",
+            26: "Content Location Code",
+            27: "Content Location Name",
+            30: "Release Date",
+            35: "Release Time",
+            37: "Expiration Date",
+            38: "Expiration Time",
+            40: "Special Instructions",
+            42: "Action Advised",
+            45: "Reference Service",
+            47: "Reference Date",
+            50: "Reference Number",
+            55: "Date Created",
+            60: "Time Created",
+            62: "Digital Creation Date",
+            63: "Digital Creation Time",
+            65: "Originating Program",
+            70: "Program Version",
+            75: "Object Cycle",
+            80: "By-line",
+            85: "By-line Title",
+            90: "City",
+            92: "Sublocation",
+            95: "Province/State",
+            100: "Country/Primary Location Code",
+            101: "Country/Primary Location Name",
+            103: "Original Transmission Reference",
+            105: "Headline",
+            110: "Credit",
+            115: "Source",
+            116: "Copyright Notice",
+            118: "Contact",
+            120: "Caption/Abstract",
+            122: "Caption Writer/Editor",
+            130: "Image Type",
+            131: "Image Orientation",
+            135: "Language Identifier",
+            150: "Audio Type",
+            151: "Audio Sampling Rate",
+            152: "Audio Sampling Resolution",
+            153: "Audio Duration",
+            154: "Audio Outcue",
+            184: "Job ID",
+            185: "Master Document ID",
+            186: "Short Document ID",
+            187: "Unique Document ID",
+            188: "Owner ID"
+        },
+        3: {
+            0: "Record Version",
+            10: "Picture Number",
+            20: "Pixels Per Line",
+            30: "Number Of Lines",
+            40: "Pixel Size In Scanning Direction",
+            50: "Pixel Size Perpendicular To Scanning Direction",
+            55: "Supplement Type",
+            60: "Colour Representation",
+            64: "Interchange Colour Space",
+            65: "Colour Sequence",
+            66: "ICC Input Colour Profile",
+            70: "Colour Calibration Matrix Table",
+            80: "Lookup Table",
+            84: "Number Of Index Entries",
+            85: "Colour Palette",
+            86: "Number Of Bits Per Sample",
+            90: "Sampling Structure",
+            100: "Scanning Direction",
+            102: "Image Rotation",
+            110: "Data Compression Method",
+            120: "Quantisation Method",
+            125: "End Points",
+            130: "Excursion Tolerance",
+            135: "Bits Per Component",
+            140: "Maximum Density Range",
+            145: "Gamma Compensated Value"
+        }
+    }
+
     def identify(buf):
         return buf.peek(18) == b"Photoshop 3.0\x008BIM"
 
@@ -209,6 +315,36 @@ class IPTCIIMModule(module.RuminantModule):
                     block["data"]["seed"] = self.buf.rh(4)
                 case 1049:
                     block["data"]["altitude"] = self.buf.ru32()
+                case 1028:
+                    self.buf.skip(1)
+                    record_number = self.buf.ru8()
+                    block["data"]["record-number"] = {
+                        "raw": record_number,
+                        "name": {
+                            1: "Envelope Record",
+                            2: "Application Record",
+                            3: "Pre‑ObjectData Descriptor Record",
+                            4: "ObjectData Descriptor Record",
+                            5: "Pre‑Data Descriptor Record",
+                            6: "Data Descriptor Record",
+                            7: "Pre‑ObjectData Descriptor Record",
+                            8: "Object Record",
+                            9: "Post‑Object Descriptor Record"
+                        }.get(record_number, "Unknown")
+                    }
+
+                    dataset_number = self.buf.ru8()
+                    block["data"]["dataset-number"] = {
+                        "raw":
+                        dataset_number,
+                        "name":
+                        self.RECORD_DATASET_NAMES.get(record_number, {}).get(
+                            dataset_number, "Unknown")
+                    }
+
+                    data_length = self.buf.ru16()
+                    block["data"]["data-length"] = data_length
+                    block["data"]["data"] = self.buf.rs(data_length)
                 case _:
                     block["data"]["unknown"] = True
 
