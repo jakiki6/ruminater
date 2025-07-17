@@ -688,9 +688,7 @@ class JPEGModule(module.RuminantModule):
                 chunk["data"]["flags1"] = self.buf.rh(2)
                 chunk["data"]["transform"] = self.buf.ru8()
             elif typ & 0xF0 == 0xE0:
-                chunk["data"]["payload"] = self.buf.readunit().decode(
-                    "latin-1"
-                )  # noqa: E501
+                chunk["data"]["payload"] = self.buf.readunit().hex()
             elif typ == 0xDA:
                 image_length = 0
                 self.buf.resetunit()
@@ -1007,6 +1005,9 @@ class TIFFModule(module.RuminantModule):
         meta["data"]["tags"] = []
 
         offset_queue = []
+        thumbnail_offset = None
+        thumbnail_length = None
+        thumbnail_tag = None
         while True:
             offset = self.buf.ru32l() if le else self.buf.ru32()
 
@@ -1123,6 +1124,24 @@ class TIFFModule(module.RuminantModule):
                                 )
                             case _:
                                 tag["unknown"] = True
+
+                match tag_id:
+                    case 513:
+                        thumbnail_offset = tag["values"][0]
+                        thumbnail_tag = tag
+                    case 514:
+                        thumbnail_length = tag["values"][0]
+
+                if thumbnail_tag is not None and thumbnail_offset is not None and thumbnail_length is not None:
+                    with self.buf:
+                        self.buf.seek(thumbnail_offset)
+
+                        with self.buf.sub(thumbnail_length):
+                            thumbnail_tag["parsed"] = chew(self.buf)
+
+                    thumbnail_tag = None
+                    thumbnail_offset = None
+                    thumbnail_length = None
 
                 meta["data"]["tags"].append(tag)
 
