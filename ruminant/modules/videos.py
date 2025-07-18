@@ -80,7 +80,7 @@ class Mp4Module(module.RuminantModule):
                    "schi", "cprt", "trkn", "aART") or (typ[0] == "©"
                                and self.buf.peek(8)[4:8] == b"data"):
             self.read_more(atom)
-        elif typ == "ftyp":
+        elif typ in ("ftyp", "styp"):
             atom["data"]["major_brand"] = self.buf.rs(4, "utf-8")
             atom["data"]["minor_version"] = self.buf.ru32()
             atom["data"]["compatible_brands"] = []
