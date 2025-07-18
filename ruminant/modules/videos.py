@@ -9,7 +9,7 @@ def mp4_time_to_iso(mp4_time):
     return dt.isoformat()
 
 
-def mp4_decode_mdhd_language(lang_bytes):
+def mp4_decode_language(lang_bytes):
     lang_code = int.from_bytes(lang_bytes, byteorder="big") & 0x7fff
 
     c1 = ((lang_code >> 10) & 0x1f) + 0x60
@@ -77,7 +77,7 @@ class Mp4Module(module.RuminantModule):
 
         if typ in ("moov", "trak", "mdia", "minf", "dinf", "stbl", "udta",
                    "ilst", "mvex", "moof", "traf", "gsst", "gstd", "sinf",
-                   "schi") or (typ[0] == "©"
+                   "schi", "cprt", "trkn", "aART") or (typ[0] == "©"
                                and self.buf.peek(8)[4:8] == b"data"):
             self.read_more(atom)
         elif typ == "ftyp":
@@ -209,7 +209,7 @@ class Mp4Module(module.RuminantModule):
                 atom["data"]["timescale"] = timescale
                 atom["data"]["duration"] = duration
 
-                atom["data"]["language"] = mp4_decode_mdhd_language(
+                atom["data"]["language"] = mp4_decode_language(
                     self.buf.read(2))
                 atom["data"]["pre_defined"] = self.buf.rh(2)
         elif typ == "hdlr":
