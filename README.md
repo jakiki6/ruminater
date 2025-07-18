@@ -37,8 +37,10 @@ Alternatively, you can also run `python3 -m build` in the source tree, followed 
 
 # How do I use it?
 The most basic usage would be `ruminant <file>` in order to process the file and output all metadata.
+
 Each time a blob is passed to chew(), it gets assigned a new unique ID that is stored in the "blob-id" field in its JSON object.
 These blobs can be extracted with `ruminant <file> --extract <ID> <file name>`. The `--extract` option can also be shortened to `-e` and can be repeated multiple times.
+
 Not specifying a file means that it reads from `-`, which is the standard input. You can also explicitly pass `-` as the file.
 
 This is a valid complex command: `ruminant -e 2 foo.jpeg - --extract 5 bar.bin -e 0 all.zip`
