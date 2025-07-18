@@ -31,9 +31,19 @@ Ruminant is still in early alpha but it can already process the following file t
     * PlayReady
     * Widevine
 
-# How do I install ruminant?
+# How do I install it?
 Run `pip3 install ruminant`.
 Alternatively, you can also run `python3 -m build` in the source tree, followed by `pip3 install dist/*.whl`.
+
+# How do I use it?
+The most basic usage would be `ruminant <file>` in order to process the file and output all metadata.
+Each time a blob is passed to chew(), it gets assigned a new unique ID that is stored in the "blob-id" field in its JSON object.
+These blobs can be extracted with `ruminant <file> --extract <ID> <file name>`. The `--extract` option can also be shortened to `-e` and can be repeated multiple times.
+Not specifying a file means that it reads from `-`, which is the standard input. You can also explicitly pass `-` as the file.
+
+This is a valid complex command: `ruminant -e 2 foo.jpeg - --extract 5 bar.bin -e 0 all.zip`
+
+(Yes, you could abuse ruminant to copy files by running `function cp() { ruminant --extract 0 $2 $1 }` in bash and then using the function as `cp`.)
 
 # Ruminant can't parse xyz
 Feel free to send me a sample so I can add a parser for it :)
