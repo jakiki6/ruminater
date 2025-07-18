@@ -911,14 +911,18 @@ class PNGModule(module.RuminantModule):
 
             data = self.buf.peek(length + 4)
             data, crc = data[:-4], data[-4:]
+            target_crc = zlib.crc32(chunk_type + data)
 
             chunk["crc"] = {
                 "value":
                 crc.hex(),
                 "correct":
-                int.from_bytes(crc, "big") == zlib.crc32(chunk_type + data)
+                int.from_bytes(crc, "big") == target_crc
                 & 0xffffffff,
             }
+
+            if not chunk["crc"]["correct"]:
+                chunk["crc"]["actual"] = target_crc.to_bytes(4, "big").hex()
 
             chunk["data"] = {}
             match chunk_type.decode("latin-1"):
