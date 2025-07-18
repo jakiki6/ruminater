@@ -31,6 +31,10 @@ Ruminant is still in early alpha but it can already process the following file t
     * PlayReady
     * Widevine
 
+# How do I install ruminant?
+Run `pip3 install ruminant`.
+Alternatively, you can also run `python3 -m build` in the source tree, followed by `pip3 install dist/*.whl`.
+
 # Ruminant can't parse xyz
 Feel free to send me a sample so I can add a parser for it :)
 
