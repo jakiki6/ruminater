@@ -1,11 +1,20 @@
 from .. import module
 from ..buf import Buf
 
+to_extract = []
+blob_id = 0
+
 
 class EntryModule(module.RuminantModule):
 
     def chew(self):
+        global blob_id
+
         meta = {}
+        meta["blob-id"] = blob_id
+        blob_id += 1
+
+        offset = self.buf.tell()
 
         matched = False
         for m in module.modules:
@@ -25,6 +34,20 @@ class EntryModule(module.RuminantModule):
 
         if not matched:
             meta |= {"type": "unknown", "length": self.buf.size()}
+
+        for k, v in to_extract:
+            if k == meta["blob-id"]:
+                with self.buf:
+                    self.buf.resetunit()
+                    self.buf.seek(offset)
+
+                    with open(v, "wb") as file:
+                        length = meta["length"]
+
+                        while length:
+                            blob = self.buf.read(min(1 << 24, length))
+                            file.write(blob)
+                            length -= len(blob)
 
         return meta
 

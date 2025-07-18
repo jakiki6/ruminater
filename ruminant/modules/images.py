@@ -914,10 +914,8 @@ class PNGModule(module.RuminantModule):
             target_crc = zlib.crc32(chunk_type + data)
 
             chunk["crc"] = {
-                "value":
-                crc.hex(),
-                "correct":
-                int.from_bytes(crc, "big") == target_crc
+                "value": crc.hex(),
+                "correct": int.from_bytes(crc, "big") == target_crc
                 & 0xffffffff,
             }
 
