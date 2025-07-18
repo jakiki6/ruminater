@@ -77,7 +77,8 @@ class Mp4Module(module.RuminantModule):
 
         if typ in ("moov", "trak", "mdia", "minf", "dinf", "stbl", "udta",
                    "ilst", "mvex", "moof", "traf", "gsst", "gstd", "sinf",
-                   "schi", "cprt", "trkn", "aART") or (typ[0] == "©"
+                   "schi", "cprt", "trkn",
+                   "aART") or (typ[0] == "©"
                                and self.buf.peek(8)[4:8] == b"data"):
             self.read_more(atom)
         elif typ in ("ftyp", "styp"):
