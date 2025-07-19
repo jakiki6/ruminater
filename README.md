@@ -30,6 +30,8 @@ Ruminant is still in early alpha but it can already process the following file t
     * CENC
     * PlayReady
     * Widevine
+* ICC profiles
+  * EP0763801A2 extension
 
 # How do I install it?
 Run `pip3 install ruminant`.

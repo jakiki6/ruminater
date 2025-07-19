@@ -344,7 +344,9 @@ class IPTCIIMModule(module.RuminantModule):
 
                     data_length = self.buf.ru16()
                     block["data"]["data-length"] = data_length
-                    block["data"]["data"] = self.buf.rs(data_length)
+                    block["data"]["data"] = self.buf.rs(data_length, "latin-1")
+                case 1061:
+                    block["data"]["digest"] = self.buf.rh(16)
                 case _:
                     block["data"]["unknown"] = True
 
@@ -526,6 +528,36 @@ class ICCProfileModule(module.RuminantModule):
                         case _:
                             tag["data"]["formula"]["X >= ?"] = "Y = ?"
                             tag["data"]["formula"]["X < ?"] = "Y = ?"
+                case "ucmI":
+                    tag["data"]["parameter-length"] = self.buf.ru32()
+                    tag["data"]["engine-version"] = f"{self.buf.ru8()}.{self.buf.ru8()}.{self.buf.ru16()}"
+                    tag["data"]["profile-format-document-version"] = f"{self.buf.ru8()}.{self.buf.ru8()}.{self.buf.ru16()}"
+                    tag["data"]["profile-version"] = f"{self.buf.ru8()}.{self.buf.ru8()}.{self.buf.ru16()}"
+                    tag["data"]["profile-build-number"] = self.buf.ru32()
+                    tag["data"]["interpolation-flag"] = self.buf.ru32()
+                    tag["data"]["atob0-tag-override"] = self.buf.ru32()
+                    tag["data"]["atob1-tag-override"] = self.buf.ru32()
+                    tag["data"]["atob2-tag-override"] = self.buf.ru32()
+                    tag["data"]["btoa0-tag-override"] = self.buf.ru32()
+                    tag["data"]["btoa1-tag-override"] = self.buf.ru32()
+                    tag["data"]["btoa2-tag-override"] = self.buf.ru32()
+                    tag["data"]["preview0-tag-override"] = self.buf.ru32()
+                    tag["data"]["preview1-tag-override"] = self.buf.ru32()
+                    tag["data"]["preview2-tag-override"] = self.buf.ru32()
+                    tag["data"]["gamut-tag-override"] = self.buf.ru32()
+                    tag["data"]["atob0-tag-optimization-flag"] = self.buf.ru32()
+                    tag["data"]["atob1-tag-optimization-flag"] = self.buf.ru32()
+                    tag["data"]["atob2-tag-optimization-flag"] = self.buf.ru32()
+                    tag["data"]["btoa0-tag-optimization-flag"] = self.buf.ru32()
+                    tag["data"]["btoa1-tag-optimization-flag"] = self.buf.ru32()
+                    tag["data"]["btoa2-tag-optimization-flag"] = self.buf.ru32()
+                    tag["data"]["preview0-tag-optimization-flag"] = self.buf.ru32()
+                    tag["data"]["preview1-tag-optimization-flag"] = self.buf.ru32()
+                    tag["data"]["preview2-tag-optimization-flag"] = self.buf.ru32()
+                    tag["data"]["gamut-tag-optimization-flag"] = self.buf.ru32()
+                    tag["data"]["creator-division"] = self.buf.rs(64, "latin-1").rstrip("\x00")
+                    tag["data"]["support-division"] = self.buf.rs(64, "latin-1").rstrip("\x00")
+                    tag["data"]["von-kries-flag"] = self.buf.ru32()
                 case _:
                     tag["data"]["unkown"] = True
 
@@ -542,7 +574,7 @@ class ICCProfileModule(module.RuminantModule):
         self.buf.skip(14)
         length = self.buf.ru32()
         meta["data"]["length"] = length
-        self.buf.setunit(length)
+        self.buf.setunit(length - 4)
 
         meta["data"]["cmm-type"] = self.buf.rs(4)
         meta["data"][
@@ -593,6 +625,8 @@ class ICCProfileModule(module.RuminantModule):
             tag |= self.read_tag(tag["offset"] + 14, tag["length"])
 
             meta["data"]["tags"].append(tag)
+
+        self.buf.readunit()
 
         return meta
 
@@ -791,6 +825,9 @@ class JPEGModule(module.RuminantModule):
             elif typ == 0xed and self.buf.peek(18) == b"Photoshop 3.0\x008BIM":
                 with self.buf.subunit():
                     chunk["data"]["iptc"] = chew(self.buf)
+            elif typ == 0xed and self.buf.peek(9) == b"Adobe_CM\x00":
+                self.buf.skip(9)
+                chunk["data"]["adobe-cm-payload"] = self.buf.readunit().hex()
             elif typ == 0xee and self.buf.peek(5) == b"Adobe":
                 chunk["data"]["identifier"] = self.buf.rs(5)
                 chunk["data"]["pre-defined"] = self.buf.rh(1)
