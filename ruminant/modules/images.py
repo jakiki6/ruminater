@@ -1053,11 +1053,16 @@ class PNGModule(module.RuminantModule):
                             "latin-1")
 
                     if chunk["data"]["keyword"] == "XML:com.adobe.xmp":
-                        chunk["data"]["text"] = utils.xml_to_dict(
-                            chunk["data"]["text"]
-                            [:chunk["data"]["text"].
-                             index("<?xpacket end=\"w\"?>") +
-                             19].encode("latin-1").decode("utf-8"))
+                        length = len(chunk["data"]["text"])
+
+                        while length:
+                            try:
+                                chunk["data"]["text"] = utils.xml_to_dict(
+                                    chunk["data"]["text"][:length].encode(
+                                        "latin-1").decode("utf-8"))
+                                break
+                            except ValueError:
+                                length -= 1
                 case "cHRM":
                     chunk["data"]["white"] = [
                         self.buf.ru32() / 100000 for _ in range(0, 2)
@@ -1073,7 +1078,8 @@ class PNGModule(module.RuminantModule):
                     ]
                 case "tEXt":
                     chunk["data"]["keyword"] = self.buf.rzs()
-                    chunk["data"]["text"] = self.buf.readunit().decode("latin-1")
+                    chunk["data"]["text"] = self.buf.readunit().decode(
+                        "latin-1")
 
             meta["chunks"].append(chunk)
 
