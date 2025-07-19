@@ -946,7 +946,7 @@ class PNGModule(module.RuminantModule):
         while self.buf.available():
             length = self.buf.ru32()
             self.buf.pushunit()
-            self.buf.setunit(length + 8)
+            self.buf.setunit(length + 4)
 
             chunk_type = self.buf.read(4)
 
@@ -1071,10 +1071,14 @@ class PNGModule(module.RuminantModule):
                     chunk["data"]["blue"] = [
                         self.buf.ru32() / 100000 for _ in range(0, 2)
                     ]
+                case "tEXt":
+                    chunk["data"]["keyword"] = self.buf.rzs()
+                    chunk["data"]["text"] = self.buf.readunit().decode("latin-1")
 
             meta["chunks"].append(chunk)
 
             self.buf.skipunit()
+            self.buf.skip(4)
             self.buf.popunit()
 
         return meta
