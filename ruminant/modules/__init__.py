@@ -7,6 +7,11 @@ blob_id = 0
 
 class EntryModule(module.RuminantModule):
 
+    def __init__(self, walk_mode, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.walk_mode = walk_mode
+
     def chew(self):
         global blob_id
 
@@ -25,7 +30,7 @@ class EntryModule(module.RuminantModule):
 
                 matched = True
 
-                if self.buf.available():
+                if self.buf.available() and not self.walk_mode:
                     with self.buf.cut():
                         meta["trailer"] = self.chew()
 
@@ -35,8 +40,12 @@ class EntryModule(module.RuminantModule):
         if not matched:
             meta |= {"type": "unknown", "length": self.buf.size()}
 
-        for k, v in to_extract:
+        for entry in to_extract[:]:
+            k, v = entry
+
             if k == meta["blob-id"]:
+                to_extract.remove(entry)
+
                 with self.buf:
                     self.buf.resetunit()
                     self.buf.seek(offset)
@@ -49,11 +58,14 @@ class EntryModule(module.RuminantModule):
                             file.write(blob)
                             length -= len(blob)
 
+                            if len(blob) == 0:
+                                break
+
         return meta
 
 
-def chew(blob):
-    return EntryModule(Buf.of(blob)).chew()
+def chew(blob, walk_mode=False):
+    return EntryModule(walk_mode, Buf.of(blob)).chew()
 
 
 from . import containers, images, videos, documents  # noqa: F401,E402
