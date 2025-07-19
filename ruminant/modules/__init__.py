@@ -24,7 +24,12 @@ class EntryModule(module.RuminantModule):
         matched = False
         for m in module.modules:
             if m.identify(self.buf):
-                rest = m(self.buf).chew()
+                try:
+                    rest = m(self.buf).chew()
+                except Exception as e:
+                    self.buf.skip(self.buf.available())
+                    rest = {"type": "error", "module": m.__name__, "error-message": str(e)}
+
                 meta["length"] = self.buf.tell()
                 meta |= rest
 
