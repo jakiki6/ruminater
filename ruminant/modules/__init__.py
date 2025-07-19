@@ -27,6 +27,9 @@ class EntryModule(module.RuminantModule):
                 try:
                     rest = m(self.buf).chew()
                 except Exception as e:
+                    if self.walk_mode:
+                        raise e
+
                     self.buf.skip(self.buf.available())
                     rest = {"type": "error", "module": m.__name__, "error-message": str(e)}
 
