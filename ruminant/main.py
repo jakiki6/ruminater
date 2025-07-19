@@ -8,7 +8,10 @@ import tempfile
 def main():
     parser = argparse.ArgumentParser(description="Ruminant parser")
 
-    parser.add_argument("file", default="-", nargs="?", help="File to parse (default: -)")
+    parser.add_argument("file",
+                        default="-",
+                        nargs="?",
+                        help="File to parse (default: -)")
 
     parser.add_argument(
         "--extract",
@@ -35,7 +38,7 @@ def main():
         file = tempfile.TemporaryFile()
         with open("/dev/stdin", "rb") as f:
             while True:
-                blob = f.read(1<<24)
+                blob = f.read(1 << 24)
                 if len(blob) == 0:
                     break
 
