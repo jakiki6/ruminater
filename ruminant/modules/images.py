@@ -514,7 +514,7 @@ class ICCProfileModule(module.RuminantModule):
                             tag["data"]["formula"][
                                 f"X >= {d}"] = f"Y = ({a} * X + {b}) ^ {g} + {c}"
                             tag["data"]["formula"][
-                                f"X < {-b / a}"] = f"Y = {c}"  # noqa: E501
+                                f"X < {-b / a}"] = f"Y = {c}"
                         case 3:
                             tag["data"]["formula"][
                                 f"X >= {d}"] = f"Y = ({a} * X + {b}) ^ {g}"
@@ -530,9 +530,12 @@ class ICCProfileModule(module.RuminantModule):
                             tag["data"]["formula"]["X < ?"] = "Y = ?"
                 case "ucmI":
                     tag["data"]["parameter-length"] = self.buf.ru32()
-                    tag["data"]["engine-version"] = f"{self.buf.ru8()}.{self.buf.ru8()}.{self.buf.ru16()}"
-                    tag["data"]["profile-format-document-version"] = f"{self.buf.ru8()}.{self.buf.ru8()}.{self.buf.ru16()}"
-                    tag["data"]["profile-version"] = f"{self.buf.ru8()}.{self.buf.ru8()}.{self.buf.ru16()}"
+                    tag["data"][
+                        "engine-version"] = f"{self.buf.ru8()}.{self.buf.ru8()}.{self.buf.ru16()}"  # noqa: E501
+                    tag["data"][
+                        "profile-format-document-version"] = f"{self.buf.ru8()}.{self.buf.ru8()}.{self.buf.ru16()}"  # noqa: E501
+                    tag["data"][
+                        "profile-version"] = f"{self.buf.ru8()}.{self.buf.ru8()}.{self.buf.ru16()}"  # noqa: E501
                     tag["data"]["profile-build-number"] = self.buf.ru32()
                     tag["data"]["interpolation-flag"] = self.buf.ru32()
                     tag["data"]["atob0-tag-override"] = self.buf.ru32()
@@ -545,18 +548,30 @@ class ICCProfileModule(module.RuminantModule):
                     tag["data"]["preview1-tag-override"] = self.buf.ru32()
                     tag["data"]["preview2-tag-override"] = self.buf.ru32()
                     tag["data"]["gamut-tag-override"] = self.buf.ru32()
-                    tag["data"]["atob0-tag-optimization-flag"] = self.buf.ru32()
-                    tag["data"]["atob1-tag-optimization-flag"] = self.buf.ru32()
-                    tag["data"]["atob2-tag-optimization-flag"] = self.buf.ru32()
-                    tag["data"]["btoa0-tag-optimization-flag"] = self.buf.ru32()
-                    tag["data"]["btoa1-tag-optimization-flag"] = self.buf.ru32()
-                    tag["data"]["btoa2-tag-optimization-flag"] = self.buf.ru32()
-                    tag["data"]["preview0-tag-optimization-flag"] = self.buf.ru32()
-                    tag["data"]["preview1-tag-optimization-flag"] = self.buf.ru32()
-                    tag["data"]["preview2-tag-optimization-flag"] = self.buf.ru32()
-                    tag["data"]["gamut-tag-optimization-flag"] = self.buf.ru32()
-                    tag["data"]["creator-division"] = self.buf.rs(64, "latin-1").rstrip("\x00")
-                    tag["data"]["support-division"] = self.buf.rs(64, "latin-1").rstrip("\x00")
+                    tag["data"]["atob0-tag-optimization-flag"] = self.buf.ru32(
+                    )
+                    tag["data"]["atob1-tag-optimization-flag"] = self.buf.ru32(
+                    )
+                    tag["data"]["atob2-tag-optimization-flag"] = self.buf.ru32(
+                    )
+                    tag["data"]["btoa0-tag-optimization-flag"] = self.buf.ru32(
+                    )
+                    tag["data"]["btoa1-tag-optimization-flag"] = self.buf.ru32(
+                    )
+                    tag["data"]["btoa2-tag-optimization-flag"] = self.buf.ru32(
+                    )
+                    tag["data"][
+                        "preview0-tag-optimization-flag"] = self.buf.ru32()
+                    tag["data"][
+                        "preview1-tag-optimization-flag"] = self.buf.ru32()
+                    tag["data"][
+                        "preview2-tag-optimization-flag"] = self.buf.ru32()
+                    tag["data"]["gamut-tag-optimization-flag"] = self.buf.ru32(
+                    )
+                    tag["data"]["creator-division"] = self.buf.rs(
+                        64, "latin-1").rstrip("\x00")
+                    tag["data"]["support-division"] = self.buf.rs(
+                        64, "latin-1").rstrip("\x00")
                     tag["data"]["von-kries-flag"] = self.buf.ru32()
                 case _:
                     tag["data"]["unkown"] = True
