@@ -31,7 +31,7 @@ class Buf(object):
             return cls(source)
 
     def available(self):
-        return self._size - self.tell()
+        return max(self._size - self.tell(), 0)
 
     def isend(self):
         return self.available() <= 0

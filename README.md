@@ -45,6 +45,8 @@ These blobs can be extracted with `ruminant <file> --extract <ID> <file name>`. 
 
 Not specifying a file means that it reads from `-`, which is the standard input. You can also explicitly pass `-` as the file.
 
+The `--walk` or `-w` option enables a binwalk-like mode where ruminant tries to parse a file and increments the start offset by one until it can correctly parse something. This is done until the end of the file.
+
 This is a valid complex command: `ruminant -e 2 foo.jpeg - --extract 5 bar.bin -e 0 all.zip`
 
 (Yes, you could abuse ruminant to copy files by running `function cp() { ruminant --extract 0 $2 $1 }` in bash and then using the function as `cp`.)
