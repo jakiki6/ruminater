@@ -1380,7 +1380,8 @@ class TIFFModule(module.RuminantModule):
                                 value["denominator"] = (self.buf.ru32l() if le
                                                         else self.buf.ru32())
                                 value["rational_approx"] = (
-                                    value["numerator"] / value["denominator"] if value["denominator"] else "NaN")
+                                    value["numerator"] / value["denominator"]
+                                    if value["denominator"] else "NaN")
                                 tag["values"].append(value)
                             case 6:
                                 tag["values"].append(
@@ -1397,8 +1398,9 @@ class TIFFModule(module.RuminantModule):
                                                       else self.buf.ri32())
                                 value["denominator"] = (self.buf.ri32l() if le
                                                         else self.buf.ri32())
-                                value["rational_approx"] = ( 
-                                    value["numerator"] / value["denominator"] if value["denominator"] else "NaN")
+                                value["rational_approx"] = (
+                                    value["numerator"] / value["denominator"]
+                                    if value["denominator"] else "NaN")
                                 tag["values"].append(value)
                             case 11:
                                 tag["values"].append(self.buf.rf32l(
