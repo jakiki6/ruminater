@@ -12,7 +12,13 @@ def _xml_to_dict(elem):
 
 
 def xml_to_dict(string):
-    return _xml_to_dict(ET.fromstring(string))
+    while len(string):
+        try:
+            return _xml_to_dict(ET.fromstring(string))
+        except ET.ParseError:
+            string = string[:-1]
+
+    return {}
 
 
 def read_varint(buf):

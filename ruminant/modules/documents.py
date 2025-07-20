@@ -1,8 +1,11 @@
-from .. import module
+from .. import module, utils
+from . import chew
+from ..buf import Buf
 
 import zipfile
 import xml.etree.ElementTree as ET
 import re
+import zlib
 
 
 @module.register
@@ -100,8 +103,8 @@ class PdfModule(module.RuminantModule):
                             {
                                 "offset": int(m.group(1)),
                                 "in-use": m.group(3) == "n"
-                            } | {"data": self.parse_object(self.buf)} if m.
-                            group(3) == "n" else {})
+                            } | ({"data": self.parse_object(self.buf)} if m.
+                            group(3) == "n" else {}))
 
                     obj_id += 1
                 else:
@@ -121,6 +124,21 @@ class PdfModule(module.RuminantModule):
         obj["generation"] = int(obj_generation)
 
         obj["dict"] = self.read_dict(buf)
+
+        if "Length" in obj["dict"]:
+            buf.rl()
+            with buf.sub(obj["dict"]["Length"]):
+                old_buf = buf
+
+                if obj["dict"].get("Filter") == "/FlateDecode":
+                    buf = Buf(zlib.decompress(buf.read()))
+
+                if obj["dict"].get("Type") == "/Metadata" and obj["dict"].get("Subtype") == "/XML":
+                    obj["data"] = utils.xml_to_dict(buf.read())
+                else:
+                    obj["data"] = chew(buf)
+
+                buf = old_buf
 
         return obj
 
