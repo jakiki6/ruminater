@@ -55,6 +55,10 @@ class DocxModule(module.RuminantModule):
 
 @module.register
 class PdfModule(module.RuminantModule):
+    TOKEN_PATTERN = re.compile(
+        r"( << | >> | \[ | \] | /[^\s<>/\[\]()]+ | \d+\s+\d+\s+R | \d+\.\d+ | \d+ | \( (?: [^\\\)] | \\ . )* \) | <[0-9A-Fa-f]*> | true | false | null )",  # noqa: E501
+        re.VERBOSE | re.DOTALL,
+    )
 
     def identify(buf):
         return buf.peek(5) == b"%PDF-"
@@ -92,25 +96,19 @@ class PdfModule(module.RuminantModule):
                 if m:
                     with self.buf:
                         self.buf.seek(int(m.group(1)))
-                        meta["objects"].append({
-                            "id":
-                            obj_id,
-                            "offset":
-                            int(m.group(1)),
-                            "generation":
-                            int(m.group(2)),
-                            "in-use":
-                            m.group(3) == "n",
-                            "data":
-                            self.parse_object(self.buf)
-                        })
+                        meta["objects"].append(
+                            {
+                                "offset": int(m.group(1)),
+                                "in-use": m.group(3) == "n"
+                            } | {"data": self.parse_object(self.buf)} if m.
+                            group(3) == "n" else {})
 
                     obj_id += 1
                 else:
                     obj_id = int(line.split(" ")[0])
         else:
             # version 1.5+
-            self.parse_object(self.buf)
+            meta["objects"] = self.parse_object(self.buf)
 
         self.buf.skip(self.buf.available())
 
@@ -118,5 +116,99 @@ class PdfModule(module.RuminantModule):
 
     def parse_object(self, buf):
         obj = {}
+        obj_id, obj_generation, _ = buf.rl().decode("latin-1").split(" ")
+        obj["id"] = int(obj_id)
+        obj["generation"] = int(obj_generation)
+
+        obj["dict"] = self.read_dict(buf)
 
         return obj
+
+    def read_dict(self, buf):
+        while buf.peek(2) != b"<<":
+            buf.skip(1)
+
+        d = buf.read(2)
+        level = 1
+
+        while level:
+            if buf.peek(2) == b"<<":
+                level += 1
+                d += buf.read(1)
+            elif buf.peek(2) == b">>":
+                level -= 1
+                d += buf.read(1)
+
+            d += buf.read(1)
+
+        return self.process_dict(d.decode("latin-1"))
+
+    @classmethod
+    def process_dict(cls, d):
+        return cls.parse(cls.tokenize(d))
+
+    @classmethod
+    def tokenize(cls, s):
+        for match in cls.TOKEN_PATTERN.finditer(s):
+            yield match.group(0)
+
+    @classmethod
+    def parse(cls, tokens):
+        token = next(tokens, None)
+        if token != "<<":
+            raise ValueError("Dictionary must start with <<")
+        return cls.parse_dict(tokens)
+
+    @classmethod
+    def parse_dict(cls, tokens):
+        result = {}
+        key = None
+        for token in tokens:
+            if token == ">>":
+                return result
+            if key is None:
+                if not token.startswith("/"):
+                    raise ValueError(
+                        f"Expected key starting with /, got {token}")
+                key = token[1:]
+            else:
+                value = cls.parse_value(token, tokens)
+                result[key] = value
+                key = None
+        raise ValueError("Unterminated dictionary")
+
+    @classmethod
+    def parse_array(cls, tokens):
+        result = []
+        for token in tokens:
+            if token == "]":
+                return result
+            result.append(cls.parse_value(token, tokens))
+        raise ValueError("Unterminated array")
+
+    @classmethod
+    def parse_value(cls, token, tokens):
+        if token == "<<":
+            return cls.parse_dict(tokens)
+        elif token == "[":
+            return cls.parse_array(tokens)
+        elif re.match(r"\d+\s+\d+\s+R", token):
+            return token.strip()
+        elif token in ("true", "false", "null"):
+            return {"true": True, "false": False, "null": None}[token]
+        elif re.match(r"\d+\.\d+", token):
+            return float(token)
+        elif token.isdigit():
+            return int(token)
+        elif token.startswith("("):
+            token = token[1:-1]
+            if len(token) >= 2 and token[0] == "\xfe" and token[1] == "\xff":
+                token = token.encode("latin-1").decode("utf-16")
+
+            return token.replace("\\(", "(").replace("\\)", ")")
+        elif token.startswith("<"):
+            return bytes.fromhex(token[1:-1]).hex()
+        elif token.startswith("/"):
+            return token
+        else:
+            raise ValueError(f"Unknown token: {token}")
