@@ -1,10 +1,8 @@
 from .. import module
-from ..buf import Buf
 
 import zipfile
 import xml.etree.ElementTree as ET
 import re
-from io import BufferedReader
 
 
 @module.register
@@ -57,17 +55,68 @@ class DocxModule(module.RuminantModule):
 
 @module.register
 class PdfModule(module.RuminantModule):
+
     def identify(buf):
         return buf.peek(5) == b"%PDF-"
 
     def chew(self):
-        self.buf = Buf(BufferedReader(self.buf))
-
         meta = {}
         meta["type"] = "pdf"
 
-        meta["version"] = (
-            self.buf.readline()[:-1].decode("latin-1").split("-")[1])
-        meta["binary_comment"] = self.buf.readline()[:-1].hex()
+        meta["version"] = (self.buf.rl().decode("latin-1").split("-")[1])
+        meta["binary_comment"] = self.buf.rl().hex()
+
+        self.buf.seek(0, 2)
+        while self.buf.peek(9) != b"startxref":
+            self.buf.seek(-1, 1)
+
+        self.buf.rl()
+        xref_offset = int(self.buf.rl().decode("latin-1"))
+        meta["xref-offset"] = xref_offset
+
+        self.buf.seek(xref_offset)
+        meta["objects"] = []
+        if self.buf.peek(4) == b"xref":
+            self.buf.rl()
+
+            xref_pattern = re.compile(r"^(\d{10}) (\d{5}) ([nf])$")
+
+            obj_id = 0
+            while True:
+                line = self.buf.rl().decode("latin-1")
+
+                if line == "trailer":
+                    break
+
+                m = xref_pattern.match(line)
+                if m:
+                    with self.buf:
+                        self.buf.seek(int(m.group(1)))
+                        meta["objects"].append({
+                            "id":
+                            obj_id,
+                            "offset":
+                            int(m.group(1)),
+                            "generation":
+                            int(m.group(2)),
+                            "in-use":
+                            m.group(3) == "n",
+                            "data":
+                            self.parse_object(self.buf)
+                        })
+
+                    obj_id += 1
+                else:
+                    obj_id = int(line.split(" ")[0])
+        else:
+            # version 1.5+
+            self.parse_object(self.buf)
+
+        self.buf.skip(self.buf.available())
 
         return meta
+
+    def parse_object(self, buf):
+        obj = {}
+
+        return obj

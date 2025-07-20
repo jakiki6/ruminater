@@ -100,14 +100,20 @@ class Buf(object):
         self.unit, self._target, self._stack, offset = bak
         self.seek(offset)
 
-    def readline(self):
-        line = self._file.readline()
-        if self.unit is not None:
-            self.unit = max(self.unit - len(line), 0)
-            self._checkunit()
+    def rl(self):
+        line = b""
+        while True:
+            c = self.read(1)
+            if len(c) == 0:
+                break
 
-        if len(line) >= 2 and line[-2] == 0x0d:
-            line = line[:-2] + b"\n"
+            if c[0] in (0x0a, 0x0d):
+                if self.peek(1) != b"" and self.peek(1)[0] in (
+                        0x0a, 0x0d) and self.peek(1) != c:
+                    self.skip(1)
+                break
+
+            line += c
 
         return line
 

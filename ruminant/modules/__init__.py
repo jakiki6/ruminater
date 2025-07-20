@@ -31,7 +31,11 @@ class EntryModule(module.RuminantModule):
                         raise e
 
                     self.buf.skip(self.buf.available())
-                    rest = {"type": "error", "module": m.__name__, "error-message": str(e)}
+                    rest = {
+                        "type": "error",
+                        "module": m.__name__,
+                        "error-message": str(e)
+                    }
 
                 meta["length"] = self.buf.tell()
                 meta |= rest
