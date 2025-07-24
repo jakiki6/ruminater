@@ -1049,13 +1049,16 @@ class PNGModule(module.RuminantModule):
                         chunk["data"]["text"] = chunk["data"]["text"].decode(
                             "utf-8")
                     except UnicodeDecodeError:
-                        chunk["data"]["text"] = chunk["data"]["text"].decode(
-                            "latin-1")
+                        try:
+                            chunk["data"]["text"] = chunk["data"][
+                                "text"].decode("utf-16")
+                        except UnicodeDecodeError:
+                            chunk["data"]["text"] = chunk["data"][
+                                "text"].decode("latin-1")
 
                     if chunk["data"]["keyword"] == "XML:com.adobe.xmp":
                         chunk["data"]["text"] = utils.xml_to_dict(
-                            chunk["data"]["text"].encode("latin-1").decode(
-                                "utf-8"))
+                            chunk["data"]["text"])
                 case "cHRM":
                     chunk["data"]["white"] = [
                         self.buf.ru32() / 100000 for _ in range(0, 2)
