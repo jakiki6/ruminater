@@ -89,19 +89,19 @@ class PdfModule(module.RuminantModule):
         if self.buf.peek(4) == b"xref":
             self.buf.rl()
 
-            xref_pattern = re.compile(r"^(\d{10}) (\d{5}) ([nf])$")
+            xref_pattern = re.compile("^(\\d{10}) (\\d{5}) ([nf])\\s.*$")
 
             obj_id = 0
             while True:
                 line = self.buf.rl().decode("latin-1")
 
-                if line == "trailer":
+                if "trailer" in line:
                     break
 
                 m = xref_pattern.match(line)
                 if m:
                     if m.group(3) == "n":
-                        self.queue.append((obj_id, int(m.group(1)), self.buf))
+                        self.queue.append((obj_id, int(m.group(2)), int(m.group(1)), self.buf))
 
                     obj_id += 1
                 else:
@@ -111,12 +111,13 @@ class PdfModule(module.RuminantModule):
             meta["objects"].append(self.parse_object(self.buf))
 
         while len(self.queue):
-            obj_id, offset, buf = self.queue.pop(0)
+            obj_id, obj_gen, offset, buf = self.queue.pop(0)
 
             with buf:
                 buf.seek(offset)
                 meta["objects"].append({
                     "id": obj_id,
+                    "generation": obj_gen,
                     "offset": offset,
                     "data": self.parse_object(buf)
                 })
@@ -133,11 +134,11 @@ class PdfModule(module.RuminantModule):
 
         obj["dict"] = self.read_dict(buf)
 
-        if "Length" in obj["dict"]:
+        if "Size" in obj["dict"]:
             if not buf.rl().endswith(b"stream"):
                 buf.rl()
 
-            with buf.sub(obj["dict"]["Length"]):
+            with buf.sub(obj["dict"]["Size"]):
                 old_buf = buf
 
                 if obj["dict"].get("Filter") == "/FlateDecode":
@@ -149,6 +150,26 @@ class PdfModule(module.RuminantModule):
                 match obj_type, obj_subtype:
                     case "/Metadata", "/XML":
                         obj["data"] = utils.xml_to_dict(buf.read())
+                    case " /XRef", _:
+                        w0, w1, w2 = obj["dict"]["W"]
+                        index = obj["dict"]["Index"]
+                        if len(index) == 0:
+                            index = [0, (1<<64)-1]
+
+                        while buf.available():
+                            f0 = int.from_bytes(buf.read(w0), "big") if w0 else 1
+                            f1 = int.from_bytes(buf.read(w1), "big")
+                            f2 = int.from_bytes(buf.read(w2), "big") if w0 else 0
+
+                            print(f0, f1, f2)
+                            if f0 == 1:
+                                self.queue.append((index[0], f2, f1, old_buf))
+                                index[0] += 1
+                                index[1] -= 1
+
+                                if index[1] <= 0:
+                                    index.pop(0)
+                                    index.pop(0)
                     case _, _:
                         obj["data"] = chew(buf)
 
