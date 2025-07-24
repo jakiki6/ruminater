@@ -83,6 +83,9 @@ class PdfModule(module.RuminantModule):
 
         self.buf.seek(xref_offset)
         meta["objects"] = []
+
+        self.queue = []
+
         if self.buf.peek(4) == b"xref":
             self.buf.rl()
 
@@ -97,21 +100,26 @@ class PdfModule(module.RuminantModule):
 
                 m = xref_pattern.match(line)
                 if m:
-                    with self.buf:
-                        self.buf.seek(int(m.group(1)))
-                        meta["objects"].append(
-                            {
-                                "offset": int(m.group(1)),
-                                "in-use": m.group(3) == "n"
-                            } | ({"data": self.parse_object(self.buf)} if m.
-                            group(3) == "n" else {}))
+                    if m.group(3) == "n":
+                        self.queue.append((obj_id, int(m.group(1)), self.buf))
 
                     obj_id += 1
                 else:
                     obj_id = int(line.split(" ")[0])
         else:
             # version 1.5+
-            meta["objects"] = self.parse_object(self.buf)
+            meta["objects"].append(self.parse_object(self.buf))
+
+        while len(self.queue):
+            obj_id, offset, buf = self.queue.pop(0)
+
+            with buf:
+                buf.seek(offset)
+                meta["objects"].append({
+                    "id": obj_id,
+                    "offset": offset,
+                    "data": self.parse_object(buf)
+                })
 
         self.buf.skip(self.buf.available())
 
@@ -126,17 +134,23 @@ class PdfModule(module.RuminantModule):
         obj["dict"] = self.read_dict(buf)
 
         if "Length" in obj["dict"]:
-            buf.rl()
+            if not buf.rl().endswith(b"stream"):
+                buf.rl()
+
             with buf.sub(obj["dict"]["Length"]):
                 old_buf = buf
 
                 if obj["dict"].get("Filter") == "/FlateDecode":
                     buf = Buf(zlib.decompress(buf.read()))
 
-                if obj["dict"].get("Type") == "/Metadata" and obj["dict"].get("Subtype") == "/XML":
-                    obj["data"] = utils.xml_to_dict(buf.read())
-                else:
-                    obj["data"] = chew(buf)
+                obj_type = obj["dict"].get("Type")
+                obj_subtype = obj["dict"].get("Subtype")
+
+                match obj_type, obj_subtype:
+                    case "/Metadata", "/XML":
+                        obj["data"] = utils.xml_to_dict(buf.read())
+                    case _, _:
+                        obj["data"] = chew(buf)
 
                 buf = old_buf
 
