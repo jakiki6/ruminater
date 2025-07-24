@@ -1,6 +1,8 @@
 from .. import module
 from ..buf import Buf
 
+import traceback
+
 to_extract = []
 blob_id = 0
 
@@ -31,10 +33,22 @@ class EntryModule(module.RuminantModule):
                         raise e
 
                     self.buf.skip(self.buf.available())
+
+                    stack_list = []
+                    for frame in traceback.extract_tb(e.__traceback__):
+                        stack_list.append({
+                            "filename": frame.filename,
+                            "lineno": frame.lineno,
+                            "name": frame.name,
+                            "line": frame.line
+                        })
+
                     rest = {
                         "type": "error",
                         "module": m.__name__,
-                        "error-message": str(e)
+                        "error-type": type(e).__name__,
+                        "error-message": str(e),
+                        "stack": stack_list
                     }
 
                 meta["length"] = self.buf.tell()

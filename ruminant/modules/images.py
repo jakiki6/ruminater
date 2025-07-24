@@ -1054,8 +1054,8 @@ class PNGModule(module.RuminantModule):
 
                     if chunk["data"]["keyword"] == "XML:com.adobe.xmp":
                         chunk["data"]["text"] = utils.xml_to_dict(
-                                    chunk["data"]["text"].encode(
-                                        "latin-1").decode("utf-8"))
+                            chunk["data"]["text"].encode("latin-1").decode(
+                                "utf-8"))
                 case "cHRM":
                     chunk["data"]["white"] = [
                         self.buf.ru32() / 100000 for _ in range(0, 2)
