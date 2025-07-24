@@ -176,7 +176,7 @@ class PdfModule(module.RuminantModule):
                         stuck = False
                         with compressed_buf:
                             compressed_buf.seek(meta["objects"][compressed_id][0]["offset"])
-                            self.parse_object(compressed_buf, meta["objects"], packed=compressed_index)
+                            self.parse_object(compressed_buf, meta["objects"], packed=(compressed_index, compressed_id))
                         self.compressed.remove((compressed_id, compressed_index, compressed_buf))
 
             if len(self.queue):
@@ -194,10 +194,15 @@ class PdfModule(module.RuminantModule):
 
         return meta
 
-    def parse_object(self, buf, objects, packed=None):
+    def parse_object(self, buf, objects, packed=None, obj_id=None):
         obj = {}
         obj["offset"] = buf.tell()
-        obj_id, obj_generation, _ = buf.rl().decode("latin-1").split(" ")
+
+        if obj_id is None:
+            line = buf.rl().decode("latin-1")
+            obj_id, obj_generation, _ = line.split(" ")
+        else:
+            obj_generation = 0
 
         obj_id = int(obj_id)
         obj_generation = int(obj_generation)
@@ -213,11 +218,11 @@ class PdfModule(module.RuminantModule):
 
         obj["dict"] = self.read_dict(buf)
 
-        if "Size" in obj["dict"]:
+        if "Length" in obj["dict"]:
             if not buf.rl().endswith(b"stream"):
                 buf.rl()
 
-            with buf.sub(obj["dict"]["Size"]):
+            with buf.sub(obj["dict"]["Length"]):
                 old_buf = buf
 
                 if obj["dict"].get("Filter") == "/FlateDecode":
@@ -233,8 +238,8 @@ class PdfModule(module.RuminantModule):
                             raise ValueError(f"Unknown predictor: {obj['dict']['DecodeParms']['Predictor']}")
 
                 if packed is not None:
-                    buf.seek(packed)
-                    return self.parse_object(buf, objects)
+                    buf.seek(obj["dict"]["First"] + packed[0])
+                    return self.parse_object(buf, objects, obj_id = packed[1])
 
                 obj_type = obj["dict"].get("Type")
                 obj_subtype = obj["dict"].get("Subtype")
