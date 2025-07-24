@@ -6,6 +6,7 @@ import zipfile
 import xml.etree.ElementTree as ET
 import re
 import zlib
+import math
 
 
 @module.register
@@ -55,6 +56,62 @@ class DocxModule(module.RuminantModule):
 
         return meta
 
+def png_decode(data, columns, rowlength):
+    # based on https://github.com/py-pdf/pypdf/blob/47a7f8fae02aa06585f8c8338dcab647e2547917/pypdf/filters.py#L204
+    # licensed under BSD-3
+    # see https://github.com/py-pdf/pypdf/blob/47a7f8fae02aa06585f8c8338dcab647e2547917/LICENSE for attribution
+
+    output = b""
+    prev_rowdata = bytes(rowlength)
+    bpp = (rowlength - 1) // columns
+    for row in range(0, len(data), rowlength):
+        rowdata = bytearray(data[row : row + rowlength])
+        cmd = rowdata[0]
+
+        match cmd:
+            case 0:
+                pass
+            case 1:
+                for i in range(bpp + 1, rowlength):
+                    rowdata[i] = (rowdata[i] + rowdata[i - bpp]) % 256
+            case 2:
+                for i in range(1, rowlength):
+                    rowdata[i] = (rowdata[i] + prev_rowdata[i]) % 256
+            case 3:
+                for i in range(1, bpp + 1):
+                    floor = prev_rowdata[i] // 2
+                    rowdata[i] = (rowdata[i] + floor) % 256
+                for i in range(bpp + 1, rowlength):
+                    left = rowdata[i - bpp]
+                    floor = (left + prev_rowdata[i]) // 2
+                    rowdata[i] = (rowdata[i] + floor) % 256
+            case 4:
+                for i in range(1, bpp + 1):
+                    up = prev_rowdata[i]
+                    paeth = up
+                    rowdata[i] = (rowdata[i] + paeth) % 256
+                for i in range(bpp + 1, rowlength):
+                    left = rowdata[i - bpp]
+                    up = prev_rowdata[i]
+                    up_left = prev_rowdata[i - bpp]
+                    p = left + up - up_left
+                    dist_left = abs(p - left)
+                    dist_up = abs(p - up)
+                    dist_up_left = abs(p - up_left)
+                    if dist_left <= dist_up and dist_left <= dist_up_left:
+                        paeth = left
+                    elif dist_up <= dist_up_left:
+                        paeth = up
+                    else:
+                        paeth = up_left
+                    rowdata[i] = (rowdata[i] + paeth) % 256
+            case _:
+                raise ValueError(f"Unsupported PNG predictor {cmd}")
+
+        prev_rowdata = bytes(rowdata)
+        output += rowdata[1:]
+
+    return output
 
 @module.register
 class PdfModule(module.RuminantModule):
@@ -82,9 +139,10 @@ class PdfModule(module.RuminantModule):
         meta["xref-offset"] = xref_offset
 
         self.buf.seek(xref_offset)
-        meta["objects"] = []
+        meta["objects"] = {}
 
         self.queue = []
+        self.compressed = []
 
         if self.buf.peek(4) == b"xref":
             self.buf.rl()
@@ -108,24 +166,50 @@ class PdfModule(module.RuminantModule):
                     obj_id = int(line.split(" ")[0])
         else:
             # version 1.5+
-            meta["objects"].append(self.parse_object(self.buf))
+            self.parse_object(self.buf, meta["objects"])
 
-        while len(self.queue):
-            offset, buf = self.queue.pop(0)
+        while len(self.queue) + len(self.compressed):
+            stuck = True
+            if len(self.compressed):
+                for compressed_id, compressed_index, compressed_buf in self.compressed.copy():
+                    if compressed_id in meta["objects"]:
+                        stuck = False
+                        with compressed_buf:
+                            compressed_buf.seek(meta["objects"][compressed_id][0]["offset"])
+                            self.parse_object(compressed_buf, meta["objects"], packed=compressed_index)
+                        self.compressed.remove((compressed_id, compressed_index, compressed_buf))
 
-            with buf:
-                buf.seek(offset)
-                meta["objects"].append(self.parse_object(buf))
+            if len(self.queue):
+                stuck = False
+                offset, buf = self.queue.pop(0)
+
+                with buf:
+                    buf.seek(offset)
+                    self.parse_object(self.buf, meta["objects"])
+
+            if stuck:
+                break
 
         self.buf.skip(self.buf.available())
 
         return meta
 
-    def parse_object(self, buf):
+    def parse_object(self, buf, objects, packed=None):
         obj = {}
+        obj["offset"] = buf.tell()
         obj_id, obj_generation, _ = buf.rl().decode("latin-1").split(" ")
-        obj["id"] = int(obj_id)
-        obj["generation"] = int(obj_generation)
+
+        obj_id = int(obj_id)
+        obj_generation = int(obj_generation)
+
+        if packed is None:
+            if not obj_id in objects:
+                objects[obj_id] = {}
+
+            if obj_generation in objects[obj_id]:
+                return
+
+            objects[obj_id][obj_generation] = obj
 
         obj["dict"] = self.read_dict(buf)
 
@@ -138,6 +222,19 @@ class PdfModule(module.RuminantModule):
 
                 if obj["dict"].get("Filter") == "/FlateDecode":
                     buf = Buf(zlib.decompress(buf.read()))
+
+                if "DecodeParms" in obj["dict"]:
+                    match obj["dict"]["DecodeParms"]["Predictor"]:
+                        case 0:
+                            pass
+                        case 10 | 11 | 12 | 13 | 14 | 15:
+                            buf = Buf(png_decode(buf.read(), obj["dict"]["DecodeParms"]["Columns"], math.ceil(obj["dict"]["DecodeParms"]["Columns"] * obj["dict"]["DecodeParms"].get("Colors", 1) * obj["dict"]["DecodeParms"].get("BitsPerComponent", 8) / 8) + 1))
+                        case _:
+                            raise ValueError(f"Unknown predictor: {obj['dict']['DecodeParms']['Predictor']}")
+
+                if packed is not None:
+                    buf.seek(packed)
+                    return self.parse_object(buf, objects)
 
                 obj_type = obj["dict"].get("Type")
                 obj_subtype = obj["dict"].get("Subtype")
@@ -157,7 +254,6 @@ class PdfModule(module.RuminantModule):
                             f1 = int.from_bytes(buf.read(w1), "big")
                             f2 = int.from_bytes(buf.read(w2),
                                                 "big") if w2 else 0
-                            buf.skip(1)
 
                             if f0 == 1:
                                 self.queue.append((f1, old_buf))
@@ -167,8 +263,8 @@ class PdfModule(module.RuminantModule):
                                 if index[1] <= 0:
                                     index.pop(0)
                                     index.pop(0)
-                            elif f0 == 2:
-                                print(f1, f2)
+                            elif f0 == 2 and (f1 | f2):
+                                self.compressed.append((f1, f2, old_buf))
 
                         if "Prev" in obj["dict"]:
                             self.queue.append((obj["dict"]["Prev"], old_buf))
