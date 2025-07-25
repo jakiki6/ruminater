@@ -68,8 +68,7 @@ def process(file, walk):
             "type": "walk",
             "length": buf.size(),
             "entries": data
-        },
-                   indent=2))
+        }, indent=2))
 
 
 def main():
@@ -127,9 +126,15 @@ def main():
 
     if args.file == "/dev/stdin":
         file = tempfile.TemporaryFile()
-        with open("/dev/stdin", "rb") as f:
+
+        try:
+            fd = open("/dev/stdin", "rb")
+        except Exception:
+            fd = open(sys.stdin.fileno(), "rb", closefd=False)
+
+        with fd:
             while True:
-                blob = f.read(1 << 24)
+                blob = fd.read(1 << 24)
                 if len(blob) == 0:
                     break
 
