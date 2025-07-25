@@ -118,7 +118,7 @@ def png_decode(data, columns, rowlength):
 @module.register
 class PdfModule(module.RuminantModule):
     TOKEN_PATTERN = re.compile(
-        r"( << | >> | \[ | \] | /[^\s<>/\[\]()]+ | \d+\s+\d+\s+R | \d+\.\d+ | \d+ | \( (?: [^\\\)] | \\ . )* \) | <[0-9A-Fa-f]*> | true | false | null )",  # noqa: E501
+        r"( << | >> | \[ | \] | /[^\s<>/\[\]()]+ | \d+\s+\d+\s+R | \d+\.\d+ | \d+ | \( (?: [^\\\)] | \\ . )* \) | <[0-9A-Fa-f\s]*> | true | false | null )",  # noqa: E501
         re.VERBOSE | re.DOTALL,
     )
 
@@ -403,7 +403,7 @@ class PdfModule(module.RuminantModule):
 
             return token.replace("\\(", "(").replace("\\)", ")")
         elif token.startswith("<"):
-            return bytes.fromhex(token[1:-1]).hex()
+            return bytes.fromhex(token[1:-1].replace(" ", "")).hex()
         elif token.startswith("/"):
             return token
         else:
