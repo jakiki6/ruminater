@@ -12,7 +12,7 @@ This tool behaves similarly as extracted blobs themselves can be "chewed over ag
 Ruminant is still in early alpha but it can already process the following file types:
 * ZIP files
 * DOCX files (needs to be updated)
-* PDF files (horribly broken, fuck you Adobe)
+* PDF files
 * JPEG files
   * EXIF metadata
   * XMP metadata
@@ -51,6 +51,8 @@ This is a valid complex command: `ruminant -e 2 foo.jpeg - --extract 5 bar.bin -
 
 (Yes, you could abuse ruminant to copy files by running `function cp() { ruminant --extract 0 $2 $1 }` in bash and then using the function as `cp`.)
 
+You can also specify `--extract-all` in order to extract all blobs to the "blobs" directory.
+
 # Ruminant can't parse xyz
 Feel free to send me a sample so I can add a parser for it :)
 
@@ -61,5 +63,4 @@ Feel free to send me a sample so I can add a parser for it :)
   * WebP
   * Opus
   * Matroska
-* fix PDF parsing
 * ZIP family detection (e.g. DOCX is also a ZIP file)
