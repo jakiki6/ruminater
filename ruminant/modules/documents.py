@@ -144,6 +144,8 @@ class PdfModule(module.RuminantModule):
         self.queue = []
         self.compressed = []
 
+        ver_15_offsets = []
+
         if self.buf.peek(4) == b"xref":
             self.buf.rl()
 
@@ -154,6 +156,16 @@ class PdfModule(module.RuminantModule):
                 line = self.buf.rl().decode("latin-1")
 
                 if "trailer" in line:
+                    d = self.read_dict(self.buf)
+
+                    if "XRefStm" in d:
+                        ver_15_offsets.append(d["XRefStm"])
+
+                    if "Prev" in d:
+                        self.buf.seek(d["Prev"])
+                        self.buf.rl()
+                        continue
+
                     break
 
                 m = xref_pattern.match(line)
@@ -166,6 +178,10 @@ class PdfModule(module.RuminantModule):
                     obj_id = int(line.split(" ")[0])
         else:
             # version 1.5+
+            ver_15_offsets.append(self.buf.tell())
+
+        for offset in ver_15_offsets:
+            self.buf.seek(offset)
             self.parse_object(self.buf, meta["objects"])
 
         while len(self.queue) + len(self.compressed):
