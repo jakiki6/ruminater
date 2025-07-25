@@ -114,6 +114,7 @@ def png_decode(data, columns, rowlength):
 
     return output
 
+class ReparsePoint(Exception): pass
 
 @module.register
 class PdfModule(module.RuminantModule):
@@ -121,6 +122,8 @@ class PdfModule(module.RuminantModule):
         r"( << | >> | \[ | \] | /[^\s<>/\[\]()]+ | \d+\s+\d+\s+R | \d+\.\d+ | \d+ | \( (?: [^\\\)] | \\ . )* \) | <[0-9A-Fa-f\s]*> | true | false | null )",  # noqa: E501
         re.VERBOSE | re.DOTALL,
     )
+    INDIRECT_OBJECT_PATTERN = re.compile(r"^(\d+) (\d+) R$")
+    XREF_PATTERN = re.compile(r"^(\d{10}) (\d{5}) ([nf])\s.*$")
 
     def identify(buf):
         return buf.peek(5) == b"%PDF-"
@@ -141,8 +144,8 @@ class PdfModule(module.RuminantModule):
         meta["xref-offset"] = xref_offset
 
         self.buf.seek(xref_offset)
-        meta["objects"] = {}
 
+        self.objects = {}
         self.queue = []
         self.compressed = []
 
@@ -151,14 +154,12 @@ class PdfModule(module.RuminantModule):
         if self.buf.peek(4) == b"xref":
             self.buf.rl()
 
-            xref_pattern = re.compile("^(\\d{10}) (\\d{5}) ([nf])\\s.*$")
-
             obj_id = 0
             while True:
                 line = self.buf.rl().decode("latin-1")
 
                 if "trailer" in line:
-                    d = self.read_dict(self.buf)
+                    d = self.read_value(self.buf)
 
                     if "XRefStm" in d:
                         ver_15_offsets.append(d["XRefStm"])
@@ -170,7 +171,7 @@ class PdfModule(module.RuminantModule):
 
                     break
 
-                m = xref_pattern.match(line)
+                m = self.XREF_PATTERN.match(line)
                 if m:
                     if m.group(3) == "n":
                         self.queue.append((int(m.group(1)), self.buf))
@@ -184,40 +185,69 @@ class PdfModule(module.RuminantModule):
 
         for offset in ver_15_offsets:
             self.buf.seek(offset)
-            self.parse_object(self.buf, meta["objects"])
+            self.parse_object(self.buf)
 
         while len(self.queue) + len(self.compressed):
             stuck = True
             if len(self.compressed):
                 for compressed_id, compressed_index, compressed_buf in self.compressed[:]:  # noqa: E501
-                    if compressed_id in meta["objects"]:
-                        stuck = False
-                        with compressed_buf:
-                            compressed_buf.seek(
-                                meta["objects"][compressed_id][0]["offset"])
-                            self.parse_object(compressed_buf,
-                                              meta["objects"],
+                    if compressed_id in self.objects:
+                        try:
+                            with compressed_buf:
+                                compressed_buf.seek(
+                                self.objects[compressed_id][0]["offset"])
+                                self.parse_object(compressed_buf,
                                               packed=(compressed_index,
                                                       compressed_id))
-                        self.compressed.remove(
+                            self.compressed.remove(
                             (compressed_id, compressed_index, compressed_buf))
+                            stuck = False
+                        except ReparsePoint:
+                            pass
 
             if len(self.queue):
-                stuck = False
-                offset, buf = self.queue.pop(0)
+                for i in range(0, len(self.queue)):
+                    try:
+                        offset, buf = self.queue[0]
 
-                with buf:
-                    buf.seek(offset)
-                    self.parse_object(self.buf, meta["objects"])
+                        with buf:
+                            buf.seek(offset)
+                            self.parse_object(self.buf)
+
+                        self.queue.pop(0)
+                        stuck = False
+                        break
+                    except ReparsePoint:
+                        self.queue.append(self.queue.pop(0))
 
             if stuck:
                 break
+
+        for k in list(self.objects.keys()):
+            if len(self.objects[k]) == 0:
+                del self.objects[k]
+
+        meta["objects"] = self.objects
 
         self.buf.skip(self.buf.available())
 
         return meta
 
-    def parse_object(self, buf, objects, packed=None, obj_id=None):
+    def resolve(self, value):
+        if isinstance(value, str):
+            m = self.INDIRECT_OBJECT_PATTERN.match(value)
+
+            if m:
+                obj_id, obj_gen = int(m.group(1)), int(m.group(2))
+
+                if obj_id not in self.objects or obj_gen not in self.objects[obj_id]:
+                    raise ReparsePoint()
+
+                return self.objects[obj_id][obj_gen]["dict"]
+
+        return value
+
+    def parse_object(self, buf, packed=None, obj_id=None):
         obj = {}
         obj["offset"] = buf.tell()
 
@@ -231,103 +261,120 @@ class PdfModule(module.RuminantModule):
         obj_generation = int(obj_generation)
 
         if packed is None:
-            if obj_id not in objects:
-                objects[obj_id] = {}
+            if obj_id not in self.objects:
+                self.objects[obj_id] = {}
 
-            if obj_generation in objects[obj_id]:
+            if obj_generation in self.objects[obj_id]:
                 return
 
-            objects[obj_id][obj_generation] = obj
+        has_dict = True
+        with buf:
+            while True:
+                c = buf.read(1)
+                if c in (b" ", b"\r", b"\n", b"\t"):
+                    continue
 
-        obj["dict"] = self.read_dict(buf)
+                if c == "<":
+                    break
 
-        if "Length" in obj["dict"]:
-            if not buf.rl().endswith(b"stream"):
-                buf.rl()
+                has_dict = False
+                break
 
-            with buf.sub(obj["dict"]["Length"]):
-                old_buf = buf
+        obj["dict"] = self.read_value(buf)
 
-                filters = obj["dict"].get("Filter", [])
-                if isinstance(filters, str):
-                    filters = [filters]
+        if isinstance(obj["dict"], dict):
+            if "Length" in obj["dict"]:
+                length = self.resolve(obj["dict"]["Length"])
 
-                for filt in filters:
-                    match filt:
-                        case "/FlateDecode":
-                            buf = Buf(zlib.decompress(buf.read()))
+                if not buf.rl().endswith(b"stream"):
+                    buf.rl()
 
-                if "DecodeParms" in obj["dict"]:
-                    match obj["dict"]["DecodeParms"]["Predictor"]:
-                        case 0:
-                            pass
-                        case 10 | 11 | 12 | 13 | 14 | 15:
-                            buf = Buf(
-                                png_decode(
-                                    buf.read(),
-                                    obj["dict"]["DecodeParms"]["Columns"],
-                                    math.ceil(
-                                        obj["dict"]["DecodeParms"]["Columns"] *
-                                        obj["dict"]["DecodeParms"].get(
-                                            "Colors", 1) *
-                                        obj["dict"]["DecodeParms"].get(
-                                            "BitsPerComponent", 8) / 8) + 1))
-                        case _:
-                            raise ValueError(
-                                f"Unknown predictor: {obj['dict']['DecodeParms']['Predictor']}"  # noqa: E501
-                            )
+                with buf.sub(length):
+                    old_buf = buf
 
-                if packed is not None:
-                    buf.seek(obj["dict"]["First"] + packed[0])
-                    return self.parse_object(buf, objects, obj_id=packed[1])
+                    filters = obj["dict"].get("Filter", [])
+                    if isinstance(filters, str):
+                        filters = [filters]
 
-                obj_type = obj["dict"].get("Type")
-                obj_subtype = obj["dict"].get("Subtype")
+                    for filt in filters:
+                        match filt:
+                            case "/FlateDecode":
+                                buf = Buf(zlib.decompress(buf.read()))
 
-                match obj_type, obj_subtype:
-                    case "/Metadata", "/XML":
-                        obj["data"] = utils.xml_to_dict(buf.read())
-                    case "/XRef", _:
-                        w0, w1, w2 = obj["dict"]["W"]
-                        index = obj["dict"].get("Index", [])
-                        if len(index) == 0:
-                            index = [0, (1 << 64) - 1]
+                    if "DecodeParms" in obj["dict"]:
+                        match obj["dict"]["DecodeParms"]["Predictor"]:
+                            case 0:
+                                pass
+                            case 10 | 11 | 12 | 13 | 14 | 15:
+                                buf = Buf(
+                                    png_decode(
+                                        buf.read(),
+                                        obj["dict"]["DecodeParms"]["Columns"],
+                                        math.ceil(
+                                            obj["dict"]["DecodeParms"]["Columns"] *
+                                            obj["dict"]["DecodeParms"].get(
+                                                "Colors", 1) *
+                                            obj["dict"]["DecodeParms"].get(
+                                                "BitsPerComponent", 8) / 8) + 1))
+                            case _:
+                                raise ValueError(
+                                    f"Unknown predictor: {obj['dict']['DecodeParms']['Predictor']}"  # noqa: E501
+                                )
+    
+                    if packed is not None:
+                        buf.seek(obj["dict"].get("First", 0) + packed[0])
+                        return self.parse_object(buf, obj_id=packed[1])
+    
+                    obj_type = obj["dict"].get("Type")
+                    obj_subtype = obj["dict"].get("Subtype")
 
-                        while buf.available():
-                            f0 = int.from_bytes(buf.read(w0),
-                                                "big") if w0 else 1
-                            f1 = int.from_bytes(buf.read(w1), "big")
-                            f2 = int.from_bytes(buf.read(w2),
-                                                "big") if w2 else 0
+                    match obj_type, obj_subtype:
+                        case "/Metadata", "/XML":
+                            obj["data"] = utils.xml_to_dict(buf.read())
+                        case "/XRef", _:
+                            w0, w1, w2 = obj["dict"]["W"]
+                            index = obj["dict"].get("Index", [])
+                            if len(index) == 0:
+                                index = [0, (1 << 64) - 1]
+    
+                            while buf.available():
+                                f0 = int.from_bytes(buf.read(w0),
+                                                    "big") if w0 else 1
+                                f1 = int.from_bytes(buf.read(w1), "big")
+                                f2 = int.from_bytes(buf.read(w2),
+                                                    "big") if w2 else 0
+    
+                                if f0 == 1:
+                                    self.queue.append((f1, old_buf))
+                                    index[0] += 1
+                                    index[1] -= 1
+    
+                                    if index[1] <= 0:
+                                        index.pop(0)
+                                        index.pop(0)
+                                elif f0 == 2 and (f1 | f2):
+                                    self.compressed.append((f1, f2, old_buf))
+    
+                            if "Prev" in obj["dict"]:
+                                self.queue.append((obj["dict"]["Prev"], old_buf))
+                        case _, _:
+                            obj["data"] = chew(buf)
+    
+                    buf = old_buf
 
-                            if f0 == 1:
-                                self.queue.append((f1, old_buf))
-                                index[0] += 1
-                                index[1] -= 1
-
-                                if index[1] <= 0:
-                                    index.pop(0)
-                                    index.pop(0)
-                            elif f0 == 2 and (f1 | f2):
-                                self.compressed.append((f1, f2, old_buf))
-
-                        if "Prev" in obj["dict"]:
-                            self.queue.append((obj["dict"]["Prev"], old_buf))
-                    case _, _:
-                        obj["data"] = chew(buf)
-
-                buf = old_buf
+        if packed is None:
+            self.objects[obj_id][obj_generation] = obj
 
         return obj
 
-    def read_dict(self, buf):
-        while buf.peek(2) != b"<<":
-            buf.skip(1)
+    def read_value(self, buf):
+        d = b""
+        level = 0
 
-        d = buf.read(2)
-        level = 1
+        while True:
+            if buf.peek(6) == b"endobj":
+                break
 
-        while level:
             if buf.peek(2) == b"<<":
                 level += 1
                 d += buf.read(1)
@@ -335,13 +382,14 @@ class PdfModule(module.RuminantModule):
                 level -= 1
                 d += buf.read(1)
 
+                if level == 0:
+                    d += buf.read(1)
+                    break
+
             d += buf.read(1)
 
-        return self.process_dict(d.decode("latin-1"))
-
-    @classmethod
-    def process_dict(cls, d):
-        return cls.parse(cls.tokenize(d))
+        value = self.parse_value(list(self.tokenize(d.decode("latin-1"))))
+        return value
 
     @classmethod
     def tokenize(cls, s):
@@ -349,26 +397,20 @@ class PdfModule(module.RuminantModule):
             yield match.group(0)
 
     @classmethod
-    def parse(cls, tokens):
-        token = next(tokens, None)
-        if token != "<<":
-            raise ValueError("Dictionary must start with <<")
-        return cls.parse_dict(tokens)
-
-    @classmethod
     def parse_dict(cls, tokens):
         result = {}
         key = None
-        for token in tokens:
-            if token == ">>":
+        while len(tokens):
+            if tokens[0] == ">>":
+                tokens.pop(0)
                 return result
             if key is None:
-                if not token.startswith("/"):
+                if not tokens[0].startswith("/"):
                     raise ValueError(
                         f"Expected key starting with /, got {token}")
-                key = token[1:]
+                key = tokens.pop(0)[1:]
             else:
-                value = cls.parse_value(token, tokens)
+                value = cls.parse_value(tokens)
                 result[key] = value
                 key = None
         raise ValueError("Unterminated dictionary")
@@ -376,14 +418,17 @@ class PdfModule(module.RuminantModule):
     @classmethod
     def parse_array(cls, tokens):
         result = []
-        for token in tokens:
-            if token == "]":
+        while len(tokens):
+            if tokens[0] == "]":
+                tokens.pop(0)
                 return result
-            result.append(cls.parse_value(token, tokens))
+            result.append(cls.parse_value(tokens))
         raise ValueError("Unterminated array")
 
     @classmethod
-    def parse_value(cls, token, tokens):
+    def parse_value(cls, tokens):
+        token = tokens.pop(0)
+
         if token == "<<":
             return cls.parse_dict(tokens)
         elif token == "[":
