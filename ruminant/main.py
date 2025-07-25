@@ -73,6 +73,15 @@ def process(file, walk):
 
 
 def main():
+    if sys.platform == "linux":
+        import traceback
+        import signal
+
+        def print_stacktrace(sig, frame):
+            print("Current stacktrace:\n" + "".join(traceback.format_stack(frame)), file=sys.stderr)
+
+        signal.signal(signal.SIGUSR1, print_stacktrace)
+
     parser = argparse.ArgumentParser(description="Ruminant parser")
 
     parser.add_argument("file",
