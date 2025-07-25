@@ -5,6 +5,7 @@ def register(cls):
     modules.append(cls)
     return cls
 
+
 class RuminantModule(object):
 
     def __init__(self, buf):

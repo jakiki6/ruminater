@@ -114,7 +114,10 @@ def png_decode(data, columns, rowlength):
 
     return output
 
-class ReparsePoint(Exception): pass
+
+class ReparsePoint(Exception):
+    pass
+
 
 @module.register
 class PdfModule(module.RuminantModule):
@@ -195,12 +198,13 @@ class PdfModule(module.RuminantModule):
                         try:
                             with compressed_buf:
                                 compressed_buf.seek(
-                                self.objects[compressed_id][0]["offset"])
+                                    self.objects[compressed_id][0]["offset"])
                                 self.parse_object(compressed_buf,
-                                              packed=(compressed_index,
-                                                      compressed_id))
+                                                  packed=(compressed_index,
+                                                          compressed_id))
                             self.compressed.remove(
-                            (compressed_id, compressed_index, compressed_buf))
+                                (compressed_id, compressed_index,
+                                 compressed_buf))
                             stuck = False
                         except ReparsePoint:
                             pass
@@ -240,7 +244,8 @@ class PdfModule(module.RuminantModule):
             if m:
                 obj_id, obj_gen = int(m.group(1)), int(m.group(2))
 
-                if obj_id not in self.objects or obj_gen not in self.objects[obj_id]:
+                if obj_id not in self.objects or obj_gen not in self.objects[
+                        obj_id]:
                     raise ReparsePoint()
 
                 return self.objects[obj_id][obj_gen]["dict"]
@@ -266,19 +271,6 @@ class PdfModule(module.RuminantModule):
 
             if obj_generation in self.objects[obj_id]:
                 return
-
-        has_dict = True
-        with buf:
-            while True:
-                c = buf.read(1)
-                if c in (b" ", b"\r", b"\n", b"\t"):
-                    continue
-
-                if c == "<":
-                    break
-
-                has_dict = False
-                break
 
         obj["dict"] = self.read_value(buf)
 
@@ -310,23 +302,23 @@ class PdfModule(module.RuminantModule):
                             case 10 | 11 | 12 | 13 | 14 | 15:
                                 buf = Buf(
                                     png_decode(
-                                        buf.read(),
-                                        params["Columns"],
+                                        buf.read(), params["Columns"],
                                         math.ceil(
                                             params["Columns"] *
-                                            params.get(
-                                                "Colors", 1) *
-                                            params.get(
-                                                "BitsPerComponent", 8) / 8) + 1))
+                                            params.get("Colors", 1) *
+                                            params.get("BitsPerComponent", 8) /
+                                            8) + 1))
                             case _:
                                 raise ValueError(
                                     f"Unknown predictor: {params['Predictor']}"  # noqa: E501
                                 )
-    
+
                     if packed is not None:
-                        buf.seek(self.resolve(obj["dict"].get("First", 0)) + packed[0])
+                        buf.seek(
+                            self.resolve(obj["dict"].get("First", 0)) +
+                            packed[0])
                         return self.parse_object(buf, obj_id=packed[1])
-    
+
                     obj_type = self.resolve(obj["dict"].get("Type"))
                     obj_subtype = self.resolve(obj["dict"].get("Subtype"))
 
@@ -338,30 +330,32 @@ class PdfModule(module.RuminantModule):
                             index = self.resolve(obj["dict"].get("Index", []))
                             if len(index) == 0:
                                 index = [0, (1 << 64) - 1]
-    
+
                             while buf.available():
                                 f0 = int.from_bytes(buf.read(w0),
                                                     "big") if w0 else 1
                                 f1 = int.from_bytes(buf.read(w1), "big")
                                 f2 = int.from_bytes(buf.read(w2),
                                                     "big") if w2 else 0
-    
+
                                 if f0 == 1:
                                     self.queue.append((f1, old_buf))
                                     index[0] += 1
                                     index[1] -= 1
-    
+
                                     if index[1] <= 0:
                                         index.pop(0)
                                         index.pop(0)
                                 elif f0 == 2 and (f1 | f2):
                                     self.compressed.append((f1, f2, old_buf))
-    
+
                             if "Prev" in obj["dict"]:
-                                self.queue.append((self.resolve(obj["dict"]["Prev"]), old_buf))
+                                self.queue.append(
+                                    (self.resolve(obj["dict"]["Prev"]),
+                                     old_buf))
                         case _, _:
                             obj["data"] = chew(buf)
-    
+
                     buf = old_buf
 
         if packed is None:
@@ -409,7 +403,7 @@ class PdfModule(module.RuminantModule):
             if key is None:
                 if not tokens[0].startswith("/"):
                     raise ValueError(
-                        f"Expected key starting with /, got {token}")
+                        f"Expected key starting with /, got {tokens[0]}")
                 key = tokens.pop(0)[1:]
             else:
                 value = cls.parse_value(tokens)

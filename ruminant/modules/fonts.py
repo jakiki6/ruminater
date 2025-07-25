@@ -1,9 +1,9 @@
-from .. import module, utils
-from . import chew
-from ..buf import Buf
+from .. import module
+
 
 @module.register
 class TrueTypeModule(module.RuminantModule):
+
     def identify(buf):
         return buf.peek(5) == b"\x00\x01\x00\x00\x00" or buf.peek(4) == b"OTTO"
 

@@ -68,7 +68,8 @@ def process(file, walk):
             "type": "walk",
             "length": buf.size(),
             "entries": data
-        }, indent=2))
+        },
+                   indent=2))
 
 
 def main():
@@ -77,7 +78,9 @@ def main():
         import signal
 
         def print_stacktrace(sig, frame):
-            print("Current stacktrace:\n" + "".join(traceback.format_stack(frame)), file=sys.stderr)
+            print("Current stacktrace:\n" +
+                  "".join(traceback.format_stack(frame)),
+                  file=sys.stderr)
 
         signal.signal(signal.SIGUSR1, print_stacktrace)
 
