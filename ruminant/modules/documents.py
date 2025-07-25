@@ -56,16 +56,17 @@ class DocxModule(module.RuminantModule):
 
         return meta
 
+
 def png_decode(data, columns, rowlength):
-    # based on https://github.com/py-pdf/pypdf/blob/47a7f8fae02aa06585f8c8338dcab647e2547917/pypdf/filters.py#L204
+    # based on https://github.com/py-pdf/pypdf/blob/47a7f8fae02aa06585f8c8338dcab647e2547917/pypdf/filters.py#L204  # noqa: E501
     # licensed under BSD-3
-    # see https://github.com/py-pdf/pypdf/blob/47a7f8fae02aa06585f8c8338dcab647e2547917/LICENSE for attribution
+    # see https://github.com/py-pdf/pypdf/blob/47a7f8fae02aa06585f8c8338dcab647e2547917/LICENSE for attribution  # noqa: E501
 
     output = b""
     prev_rowdata = bytes(rowlength)
     bpp = (rowlength - 1) // columns
     for row in range(0, len(data), rowlength):
-        rowdata = bytearray(data[row : row + rowlength])
+        rowdata = bytearray(data[row:row + rowlength])
         cmd = rowdata[0]
 
         match cmd:
@@ -112,6 +113,7 @@ def png_decode(data, columns, rowlength):
         output += rowdata[1:]
 
     return output
+
 
 @module.register
 class PdfModule(module.RuminantModule):
@@ -187,13 +189,18 @@ class PdfModule(module.RuminantModule):
         while len(self.queue) + len(self.compressed):
             stuck = True
             if len(self.compressed):
-                for compressed_id, compressed_index, compressed_buf in self.compressed.copy():
+                for compressed_id, compressed_index, compressed_buf in self.compressed[:]:  # noqa: E501
                     if compressed_id in meta["objects"]:
                         stuck = False
                         with compressed_buf:
-                            compressed_buf.seek(meta["objects"][compressed_id][0]["offset"])
-                            self.parse_object(compressed_buf, meta["objects"], packed=(compressed_index, compressed_id))
-                        self.compressed.remove((compressed_id, compressed_index, compressed_buf))
+                            compressed_buf.seek(
+                                meta["objects"][compressed_id][0]["offset"])
+                            self.parse_object(compressed_buf,
+                                              meta["objects"],
+                                              packed=(compressed_index,
+                                                      compressed_id))
+                        self.compressed.remove(
+                            (compressed_id, compressed_index, compressed_buf))
 
             if len(self.queue):
                 stuck = False
@@ -224,7 +231,7 @@ class PdfModule(module.RuminantModule):
         obj_generation = int(obj_generation)
 
         if packed is None:
-            if not obj_id in objects:
+            if obj_id not in objects:
                 objects[obj_id] = {}
 
             if obj_generation in objects[obj_id]:
@@ -255,13 +262,24 @@ class PdfModule(module.RuminantModule):
                         case 0:
                             pass
                         case 10 | 11 | 12 | 13 | 14 | 15:
-                            buf = Buf(png_decode(buf.read(), obj["dict"]["DecodeParms"]["Columns"], math.ceil(obj["dict"]["DecodeParms"]["Columns"] * obj["dict"]["DecodeParms"].get("Colors", 1) * obj["dict"]["DecodeParms"].get("BitsPerComponent", 8) / 8) + 1))
+                            buf = Buf(
+                                png_decode(
+                                    buf.read(),
+                                    obj["dict"]["DecodeParms"]["Columns"],
+                                    math.ceil(
+                                        obj["dict"]["DecodeParms"]["Columns"] *
+                                        obj["dict"]["DecodeParms"].get(
+                                            "Colors", 1) *
+                                        obj["dict"]["DecodeParms"].get(
+                                            "BitsPerComponent", 8) / 8) + 1))
                         case _:
-                            raise ValueError(f"Unknown predictor: {obj['dict']['DecodeParms']['Predictor']}")
+                            raise ValueError(
+                                f"Unknown predictor: {obj['dict']['DecodeParms']['Predictor']}"  # noqa: E501
+                            )
 
                 if packed is not None:
                     buf.seek(obj["dict"]["First"] + packed[0])
-                    return self.parse_object(buf, objects, obj_id = packed[1])
+                    return self.parse_object(buf, objects, obj_id=packed[1])
 
                 obj_type = obj["dict"].get("Type")
                 obj_subtype = obj["dict"].get("Subtype")

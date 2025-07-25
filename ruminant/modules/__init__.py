@@ -2,8 +2,10 @@ from .. import module
 from ..buf import Buf
 
 import traceback
+import os
 
 to_extract = []
+extract_all = False
 blob_id = 0
 
 
@@ -65,6 +67,11 @@ class EntryModule(module.RuminantModule):
 
         if not matched:
             meta |= {"type": "unknown", "length": self.buf.size()}
+
+        if extract_all and meta["blob-id"] > 0:
+            to_extract.append((meta["blob-id"],
+                               os.path.join("blobs",
+                                            f"{meta['blob-id']}.bin")))
 
         for entry in to_extract[:]:
             k, v = entry

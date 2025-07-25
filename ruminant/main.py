@@ -4,6 +4,7 @@ import argparse
 import sys
 import json
 import tempfile
+import os
 
 
 def process(file, walk):
@@ -93,10 +94,19 @@ def main():
         action="store_true",
         help="Walk the file binwalk-style and look for parsable data")
 
+    parser.add_argument("--extract-all",
+                        action="store_true",
+                        help="Extract all blobs to blobs/{id}.bin")
+
     args = parser.parse_args()
 
     if args.file == "-":
         args.file = "/dev/stdin"
+
+    if args.extract_all:
+        modules.extract_all = True
+        if not os.path.isdir("blobs"):
+            os.mkdir("blobs")
 
     if args.extract is not None:
         for k, v in args.extract:
