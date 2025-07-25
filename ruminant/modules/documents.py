@@ -241,8 +241,14 @@ class PdfModule(module.RuminantModule):
             with buf.sub(obj["dict"]["Length"]):
                 old_buf = buf
 
-                if obj["dict"].get("Filter") == "/FlateDecode":
-                    buf = Buf(zlib.decompress(buf.read()))
+                filters = obj["dict"].get("Filter", [])
+                if isinstance(filters, str):
+                    filters = [filters]
+
+                for filt in filters:
+                    match filt:
+                        case "/FlateDecode":
+                            buf = Buf(zlib.decompress(buf.read()))
 
                 if "DecodeParms" in obj["dict"]:
                     match obj["dict"]["DecodeParms"]["Predictor"]:
