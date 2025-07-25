@@ -292,7 +292,7 @@ class PdfModule(module.RuminantModule):
                 with buf.sub(length):
                     old_buf = buf
 
-                    filters = obj["dict"].get("Filter", [])
+                    filters = self.resolve(obj["dict"].get("Filter", []))
                     if isinstance(filters, str):
                         filters = [filters]
 
@@ -302,38 +302,40 @@ class PdfModule(module.RuminantModule):
                                 buf = Buf(zlib.decompress(buf.read()))
 
                     if "DecodeParms" in obj["dict"]:
-                        match obj["dict"]["DecodeParms"]["Predictor"]:
+                        params = self.resolve(obj["dict"]["DecodeParms"])
+
+                        match params["Predictor"]:
                             case 0:
                                 pass
                             case 10 | 11 | 12 | 13 | 14 | 15:
                                 buf = Buf(
                                     png_decode(
                                         buf.read(),
-                                        obj["dict"]["DecodeParms"]["Columns"],
+                                        params["Columns"],
                                         math.ceil(
-                                            obj["dict"]["DecodeParms"]["Columns"] *
-                                            obj["dict"]["DecodeParms"].get(
+                                            params["Columns"] *
+                                            params.get(
                                                 "Colors", 1) *
-                                            obj["dict"]["DecodeParms"].get(
+                                            params.get(
                                                 "BitsPerComponent", 8) / 8) + 1))
                             case _:
                                 raise ValueError(
-                                    f"Unknown predictor: {obj['dict']['DecodeParms']['Predictor']}"  # noqa: E501
+                                    f"Unknown predictor: {params['Predictor']}"  # noqa: E501
                                 )
     
                     if packed is not None:
-                        buf.seek(obj["dict"].get("First", 0) + packed[0])
+                        buf.seek(self.resolve(obj["dict"].get("First", 0)) + packed[0])
                         return self.parse_object(buf, obj_id=packed[1])
     
-                    obj_type = obj["dict"].get("Type")
-                    obj_subtype = obj["dict"].get("Subtype")
+                    obj_type = self.resolve(obj["dict"].get("Type"))
+                    obj_subtype = self.resolve(obj["dict"].get("Subtype"))
 
                     match obj_type, obj_subtype:
                         case "/Metadata", "/XML":
                             obj["data"] = utils.xml_to_dict(buf.read())
                         case "/XRef", _:
-                            w0, w1, w2 = obj["dict"]["W"]
-                            index = obj["dict"].get("Index", [])
+                            w0, w1, w2 = self.resolve(obj["dict"]["W"])
+                            index = self.resolve(obj["dict"].get("Index", []))
                             if len(index) == 0:
                                 index = [0, (1 << 64) - 1]
     
@@ -356,7 +358,7 @@ class PdfModule(module.RuminantModule):
                                     self.compressed.append((f1, f2, old_buf))
     
                             if "Prev" in obj["dict"]:
-                                self.queue.append((obj["dict"]["Prev"], old_buf))
+                                self.queue.append((self.resolve(obj["dict"]["Prev"]), old_buf))
                         case _, _:
                             obj["data"] = chew(buf)
     
