@@ -253,102 +253,109 @@ class IPTCIIMModule(module.RuminantModule):
             self.buf.setunit((data_length + 1) & 0xfffffffe)
 
             block["data"] = {}
-            match resource_id:
-                case 1036:
-                    block["data"]["format"] = self.buf.ru32()
-                    block["data"]["width"] = self.buf.ru32()
-                    block["data"]["height"] = self.buf.ru32()
-                    block["data"]["width-bytes"] = self.buf.ru32()
-                    block["data"]["total-size"] = self.buf.ru32()
-                    block["data"]["compressed-size"] = self.buf.ru32()
-                    block["data"]["bit-depth"] = self.buf.ru16()
-                    block["data"]["planes"] = self.buf.ru16()
+            try:
+                match resource_id:
+                    case 1036:
+                        block["data"]["format"] = self.buf.ru32()
+                        block["data"]["width"] = self.buf.ru32()
+                        block["data"]["height"] = self.buf.ru32()
+                        block["data"]["width-bytes"] = self.buf.ru32()
+                        block["data"]["total-size"] = self.buf.ru32()
+                        block["data"]["compressed-size"] = self.buf.ru32()
+                        block["data"]["bit-depth"] = self.buf.ru16()
+                        block["data"]["planes"] = self.buf.ru16()
 
-                    with self.buf.sub(block["data"]["compressed-size"]):
-                        block["data"]["image"] = chew(self.buf)
-                case 1005:
-                    block["data"]["horizontal-dpi"] = self.buf.rfp32()
-                    horizontal_unit = self.buf.ru16()
-                    block["data"]["horizontal-unit"] = {
-                        "raw": horizontal_unit,
-                        "name": {
-                            1: "inches",
-                            2: "centimeters",
-                            3: "points",
-                            4: "picas",
-                            5: "columns",
-                        }.get(horizontal_unit, "unknown"),
-                    }
-                    block["data"]["horizontal-scale"] = self.buf.ru16()
+                        with self.buf.sub(block["data"]["compressed-size"]):
+                            block["data"]["image"] = chew(self.buf)
+                    case 1005:
+                        block["data"]["horizontal-dpi"] = self.buf.rfp32()
+                        horizontal_unit = self.buf.ru16()
+                        block["data"]["horizontal-unit"] = {
+                            "raw": horizontal_unit,
+                            "name": {
+                                1: "inches",
+                                2: "centimeters",
+                                3: "points",
+                                4: "picas",
+                                5: "columns",
+                            }.get(horizontal_unit, "unknown"),
+                        }
+                        block["data"]["horizontal-scale"] = self.buf.ru16()
 
-                    block["data"]["vertical-dpi"] = self.buf.rfp32()
-                    vertical_unit = self.buf.ru16()
-                    block["data"]["vertical-unit"] = {
-                        "raw": vertical_unit,
-                        "name": {
-                            1: "Inches",
-                            2: "Centimeters",
-                            3: "Points",
-                            4: "Picas",
-                            5: "Columns",
-                        }.get(vertical_unit, "Unknown"),
-                    }
-                    block["data"]["vertical-scale"] = self.buf.ru16()
-                case 1010:
-                    color_space = self.buf.ru16()
-                    block["data"]["color-space"] = {
-                        "raw": color_space,
-                        "name": self.COLOR_SPACES.get(color_space, "Unknown"),
-                    }
-                    block["data"]["components"] = [
-                        self.buf.ru16() for _ in range(0, 4)
-                    ]
-                case 1011:
-                    flags = self.buf.ru16()
-                    block["data"]["flags"] = {
-                        "raw": flags,
-                        "show-image": bool(flags & 1),
-                    }
-                case 1037:
-                    block["data"]["angle"] = self.buf.ru32()
-                case 1044:
-                    block["data"]["seed"] = self.buf.rh(4)
-                case 1049:
-                    block["data"]["altitude"] = self.buf.ru32()
-                case 1028:
-                    self.buf.skip(1)
-                    record_number = self.buf.ru8()
-                    block["data"]["record-number"] = {
-                        "raw": record_number,
-                        "name": {
-                            1: "Envelope Record",
-                            2: "Application Record",
-                            3: "Pre‑ObjectData Descriptor Record",
-                            4: "ObjectData Descriptor Record",
-                            5: "Pre‑Data Descriptor Record",
-                            6: "Data Descriptor Record",
-                            7: "Pre‑ObjectData Descriptor Record",
-                            8: "Object Record",
-                            9: "Post‑Object Descriptor Record"
-                        }.get(record_number, "Unknown")
-                    }
+                        block["data"]["vertical-dpi"] = self.buf.rfp32()
+                        vertical_unit = self.buf.ru16()
+                        block["data"]["vertical-unit"] = {
+                            "raw": vertical_unit,
+                            "name": {
+                                1: "Inches",
+                                2: "Centimeters",
+                                3: "Points",
+                                4: "Picas",
+                                5: "Columns",
+                            }.get(vertical_unit, "Unknown"),
+                        }
+                        block["data"]["vertical-scale"] = self.buf.ru16()
+                    case 1010:
+                        color_space = self.buf.ru16()
+                        block["data"]["color-space"] = {
+                            "raw": color_space,
+                            "name":
+                            self.COLOR_SPACES.get(color_space, "Unknown"),
+                        }
+                        block["data"]["components"] = [
+                            self.buf.ru16() for _ in range(0, 4)
+                        ]
+                    case 1011:
+                        flags = self.buf.ru16()
+                        block["data"]["flags"] = {
+                            "raw": flags,
+                            "show-image": bool(flags & 1),
+                        }
+                    case 1037:
+                        block["data"]["angle"] = self.buf.ru32()
+                    case 1044:
+                        block["data"]["seed"] = self.buf.rh(4)
+                    case 1049:
+                        block["data"]["altitude"] = self.buf.ru32()
+                    case 1028:
+                        self.buf.skip(1)
+                        record_number = self.buf.ru8()
+                        block["data"]["record-number"] = {
+                            "raw": record_number,
+                            "name": {
+                                1: "Envelope Record",
+                                2: "Application Record",
+                                3: "Pre‑ObjectData Descriptor Record",
+                                4: "ObjectData Descriptor Record",
+                                5: "Pre‑Data Descriptor Record",
+                                6: "Data Descriptor Record",
+                                7: "Pre‑ObjectData Descriptor Record",
+                                8: "Object Record",
+                                9: "Post‑Object Descriptor Record"
+                            }.get(record_number, "Unknown")
+                        }
 
-                    dataset_number = self.buf.ru8()
-                    block["data"]["dataset-number"] = {
-                        "raw":
-                        dataset_number,
-                        "name":
-                        self.RECORD_DATASET_NAMES.get(record_number, {}).get(
-                            dataset_number, "Unknown")
-                    }
+                        dataset_number = self.buf.ru8()
+                        block["data"]["dataset-number"] = {
+                            "raw":
+                            dataset_number,
+                            "name":
+                            self.RECORD_DATASET_NAMES.get(record_number,
+                                                          {}).get(
+                                                              dataset_number,
+                                                              "Unknown")
+                        }
 
-                    data_length = self.buf.ru16()
-                    block["data"]["data-length"] = data_length
-                    block["data"]["data"] = self.buf.rs(data_length, "latin-1")
-                case 1061:
-                    block["data"]["digest"] = self.buf.rh(16)
-                case _:
-                    block["data"]["unknown"] = True
+                        data_length = self.buf.ru16()
+                        block["data"]["data-length"] = data_length
+                        block["data"]["data"] = self.buf.rs(
+                            data_length, "latin-1")
+                    case 1061:
+                        block["data"]["digest"] = self.buf.rh(16)
+                    case _:
+                        block["data"]["unknown"] = True
+            except Exception:
+                block["data"]["malformed"] = True
 
             meta["data"]["blocks"].append(block)
             self.buf.skipunit()
@@ -1076,6 +1083,10 @@ class PNGModule(module.RuminantModule):
                     chunk["data"]["keyword"] = self.buf.rzs()
                     chunk["data"]["text"] = self.buf.readunit().decode(
                         "latin-1")
+                case "IDAT" | "IEND" | "PLTE" | "tRNS" | "npOl" | "npTc":
+                    pass
+                case _:
+                    chunk["data"]["unknown"] = True
 
             meta["chunks"].append(chunk)
 

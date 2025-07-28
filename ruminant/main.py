@@ -9,7 +9,7 @@ import os
 
 def process(file, walk):
     if not walk:
-        print(json.dumps(modules.chew(file), indent=2))
+        print(json.dumps(modules.chew(file), indent=2, ensure_ascii=False))
         return
 
     buf = Buf(file)
@@ -69,7 +69,8 @@ def process(file, walk):
             "length": buf.size(),
             "entries": data
         },
-                   indent=2))
+                   indent=2,
+                   ensure_ascii=False))
 
 
 def main():

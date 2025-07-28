@@ -1,12 +1,5 @@
 import uuid
-from datetime import datetime, timezone, timedelta
 from .. import module, utils
-
-
-def mp4_time_to_iso(mp4_time):
-    mp4_epoch = datetime(1904, 1, 1, tzinfo=timezone.utc)
-    dt = mp4_epoch + timedelta(seconds=mp4_time)
-    return dt.isoformat()
 
 
 def mp4_decode_language(lang_bytes):
@@ -112,8 +105,9 @@ class Mp4Module(module.RuminantModule):
                 duration = self.buf.ru64()
 
             if version in (0, 1):
-                atom["data"]["creation_time"] = mp4_time_to_iso(creation_time)
-                atom["data"]["modification_time"] = mp4_time_to_iso(
+                atom["data"]["creation_time"] = utils.mp4_time_to_iso(
+                    creation_time)
+                atom["data"]["modification_time"] = utils.mp4_time_to_iso(
                     modification_time)
                 atom["data"]["timescale"] = timescale
                 atom["data"]["duration"] = duration
@@ -150,8 +144,9 @@ class Mp4Module(module.RuminantModule):
                 duration = self.buf.ru64()
 
             if version in (0, 1):
-                atom["data"]["creation_time"] = mp4_time_to_iso(creation_time)
-                atom["data"]["modification_time"] = mp4_time_to_iso(
+                atom["data"]["creation_time"] = utils.mp4_time_to_iso(
+                    creation_time)
+                atom["data"]["modification_time"] = utils.mp4_time_to_iso(
                     modification_time)
                 atom["data"]["track_ID"] = track_ID
                 atom["data"]["reserved1"] = reserved1
@@ -204,8 +199,9 @@ class Mp4Module(module.RuminantModule):
                 duration = self.buf.ru64()
 
             if version in (0, 1):
-                atom["data"]["creation_time"] = mp4_time_to_iso(creation_time)
-                atom["data"]["modification_time"] = mp4_time_to_iso(
+                atom["data"]["creation_time"] = utils.mp4_time_to_iso(
+                    creation_time)
+                atom["data"]["modification_time"] = utils.mp4_time_to_iso(
                     modification_time)
                 atom["data"]["timescale"] = timescale
                 atom["data"]["duration"] = duration

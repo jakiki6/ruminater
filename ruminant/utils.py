@@ -1,14 +1,25 @@
 import uuid
 import xml.etree.ElementTree as ET
+from datetime import datetime, timezone, timedelta
 
 
 def _xml_to_dict(elem):
-    return {
-        "tag": elem.tag,
-        "attributes": elem.attrib or {},
-        "text": (elem.text or "").strip(),
-        "children": [_xml_to_dict(child) for child in elem],
-    }
+    res = {}
+
+    if elem.tag:
+        res["tag"] = elem.tag
+
+    if elem.attrib:
+        res["attributes"] = elem.attrib
+
+    if elem.text and len(elem.text.strip()):
+        res["text"] = elem.text
+
+    children = list(elem)
+    if len(children):
+        res["children"] = [_xml_to_dict(child) for child in children]
+
+    return res
 
 
 def xml_to_dict(string):
@@ -66,3 +77,9 @@ def read_protobuf(buf, length):
 
 def to_uuid(blob):
     return str(uuid.UUID(bytes=blob))
+
+
+def mp4_time_to_iso(mp4_time):
+    mp4_epoch = datetime(1904, 1, 1, tzinfo=timezone.utc)
+    dt = mp4_epoch + timedelta(seconds=mp4_time)
+    return dt.isoformat()
