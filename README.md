@@ -6,7 +6,7 @@ Ruminant takes a file as an input and spits out a huge json object that contains
 # Why the name?
 To quote Wikipedia: Ruminants are herbivorous grazing or browsing artiodactyls [...]. The process of rechewing the cud to further break down plant matter and stimulate digestion is called rumination. The word "ruminant" comes from the Latin ruminare, which means "to chew over again".
 
-This tool behaves similarly as extracted blobs themselves can be "chewed over again" (main entrypoint is literally called chew()) in order to recursively extract metadata.
+This tool behaves similarly as extracted blobs themselves can be "chewed over again" (the main entrypoint is literally called chew()) in order to recursively extract metadata.
 
 # What can it process?
 Ruminant is still in early alpha but it can already process the following file types:
@@ -32,7 +32,7 @@ Ruminant is still in early alpha but it can already process the following file t
     * Widevine
 * ICC profiles
   * EP0763801A2 extension
-* TrueType fonts (I hope)
+* TrueType fonts
 
 # How do I install it?
 Run `pip3 install ruminant`.
