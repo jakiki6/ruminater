@@ -909,8 +909,10 @@ class TrueTypeModule(module.RuminantModule):
 
                             table["data"]["entries"].append(entry)
                     case "post":
-                        table["data"]["format"] = str(self.buf.ru16()) + "." + str(self.buf.ru16())
-                        table["data"]["italic-angle"] = str(self.buf.ru16()) + "." + str(self.buf.ru16())
+                        table["data"]["format"] = str(
+                            self.buf.ru16()) + "." + str(self.buf.ru16())
+                        table["data"]["italic-angle"] = str(
+                            self.buf.ru16()) + "." + str(self.buf.ru16())
                         table["data"]["underline-position"] = self.buf.ri16()
                         table["data"]["underline-thickness"] = self.buf.ri16()
                         table["data"]["is-fixed-pitch"] = self.buf.ru32()
