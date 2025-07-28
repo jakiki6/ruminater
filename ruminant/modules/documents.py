@@ -248,7 +248,7 @@ class PdfModule(module.RuminantModule):
                         obj_id]:
                     raise ReparsePoint()
 
-                return self.objects[obj_id][obj_gen]["dict"]
+                return self.objects[obj_id][obj_gen]["value"]
 
         return value
 
@@ -272,11 +272,11 @@ class PdfModule(module.RuminantModule):
             if obj_generation in self.objects[obj_id]:
                 return
 
-        obj["dict"] = self.read_value(buf)
+        obj["value"] = self.read_value(buf)
 
-        if isinstance(obj["dict"], dict):
-            if "Length" in obj["dict"]:
-                length = self.resolve(obj["dict"]["Length"])
+        if isinstance(obj["value"], dict):
+            if "Length" in obj["value"]:
+                length = self.resolve(obj["value"]["Length"])
 
                 if not buf.rl().endswith(b"stream"):
                     buf.rl()
@@ -284,7 +284,7 @@ class PdfModule(module.RuminantModule):
                 with buf.sub(length):
                     old_buf = buf
 
-                    filters = self.resolve(obj["dict"].get("Filter", []))
+                    filters = self.resolve(obj["value"].get("Filter", []))
                     if isinstance(filters, str):
                         filters = [filters]
 
@@ -293,8 +293,8 @@ class PdfModule(module.RuminantModule):
                             case "/FlateDecode":
                                 buf = Buf(zlib.decompress(buf.read()))
 
-                    if "DecodeParms" in obj["dict"]:
-                        params = self.resolve(obj["dict"]["DecodeParms"])
+                    if "DecodeParms" in obj["value"]:
+                        params = self.resolve(obj["value"]["DecodeParms"])
 
                         match params["Predictor"]:
                             case 0:
@@ -315,19 +315,19 @@ class PdfModule(module.RuminantModule):
 
                     if packed is not None:
                         buf.seek(
-                            self.resolve(obj["dict"].get("First", 0)) +
+                            self.resolve(obj["value"].get("First", 0)) +
                             packed[0])
                         return self.parse_object(buf, obj_id=packed[1])
 
-                    obj_type = self.resolve(obj["dict"].get("Type"))
-                    obj_subtype = self.resolve(obj["dict"].get("Subtype"))
+                    obj_type = self.resolve(obj["value"].get("Type"))
+                    obj_subtype = self.resolve(obj["value"].get("Subtype"))
 
                     match obj_type, obj_subtype:
                         case "/Metadata", "/XML":
                             obj["data"] = utils.xml_to_dict(buf.read())
                         case "/XRef", _:
-                            w0, w1, w2 = self.resolve(obj["dict"]["W"])
-                            index = self.resolve(obj["dict"].get("Index", []))
+                            w0, w1, w2 = self.resolve(obj["value"]["W"])
+                            index = self.resolve(obj["value"].get("Index", []))
                             if len(index) == 0:
                                 index = [0, (1 << 64) - 1]
 
@@ -349,9 +349,9 @@ class PdfModule(module.RuminantModule):
                                 elif f0 == 2 and (f1 | f2):
                                     self.compressed.append((f1, f2, old_buf))
 
-                            if "Prev" in obj["dict"]:
+                            if "Prev" in obj["value"]:
                                 self.queue.append(
-                                    (self.resolve(obj["dict"]["Prev"]),
+                                    (self.resolve(obj["value"]["Prev"]),
                                      old_buf))
                         case _, _:
                             obj["data"] = chew(buf)
