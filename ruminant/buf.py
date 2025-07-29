@@ -187,7 +187,7 @@ class Buf(object):
     def ru16l(self):
         return int.from_bytes(self.read(2), "little")
 
-    def ru48l(self):
+    def ru24l(self):
         return int.from_bytes(self.read(3), "little")
 
     def ru32l(self):

@@ -920,7 +920,13 @@ class TrueTypeModule(module.RuminantModule):
                         table["data"]["max-mem-type42"] = self.buf.ru32()
                         table["data"]["min-mem-type1"] = self.buf.ru32()
                         table["data"]["max-mem-type1"] = self.buf.ru32()
-                    case "glyf" | "hmtx" | "loca":
+                    case "cmap":
+                        table["data"]["version"] = self.buf.ru16()
+                        table["data"]["subtable-count"] = self.buf.ru16()
+                    case "gasp":
+                        table["data"]["version"] = self.buf.ru16()
+                        table["data"]["range-count"] = self.buf.ru16()
+                    case "glyf" | "hmtx" | "loca" | "GDEF" | "GPOS" | "GSUB":
                         # not really parsable as it's the raw glyph data
                         pass
                     case _:

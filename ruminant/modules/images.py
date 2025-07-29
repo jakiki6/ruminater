@@ -1083,6 +1083,16 @@ class PNGModule(module.RuminantModule):
                     chunk["data"]["keyword"] = self.buf.rzs()
                     chunk["data"]["text"] = self.buf.readunit().decode(
                         "latin-1")
+                case "bKGD":
+                    match self.buf.unit:
+                        case 1:
+                            chunk["data"]["index"] = self.buf.ru8()
+                        case 2:
+                            chunk["data"]["gray"] = self.buf.ru16()
+                        case 6:
+                            chunk["data"]["red"] = self.buf.ru16()
+                            chunk["data"]["green"] = self.buf.ru16()
+                            chunk["data"]["blue"] = self.buf.ru16()
                 case "IDAT" | "IEND" | "PLTE" | "tRNS" | "npOl" | "npTc":
                     pass
                 case _:
