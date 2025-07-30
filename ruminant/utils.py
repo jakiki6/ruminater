@@ -76,7 +76,10 @@ def read_protobuf(buf, length):
 
 
 def to_uuid(blob):
-    return str(uuid.UUID(bytes=blob))
+    try:
+        return str(uuid.UUID(bytes=blob))
+    except ValueError:
+        return blob.hex()
 
 
 def mp4_time_to_iso(mp4_time):
