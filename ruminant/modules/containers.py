@@ -40,8 +40,10 @@ class ZipModule(module.RuminantModule):
             "files": files,
         }
 
+
 @module.register
 class RIFFModule(module.RuminantModule):
+
     def identify(buf):
         return buf.peek(4) == b"RIFF"
 
@@ -93,7 +95,8 @@ class RIFFModule(module.RuminantModule):
                     chunk["data"][field] = i
 
                 chunk["data"]["has-alpha"] = bool(tag & 1)
-                chunk["data"]["version"] = ((tag >> 1) & 1) | (((tag >> 2) & 1) << 1) | (((tag >> 3) & 1) << 2)
+                chunk["data"]["version"] = ((tag >> 1) & 1) | ((
+                    (tag >> 2) & 1) << 1) | (((tag >> 3) & 1) << 2)
             case "ANIM":
                 chunk["data"]["background-color"] = {
                     "red": self.buf.ru8(),

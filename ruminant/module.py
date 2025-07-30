@@ -15,4 +15,5 @@ class RuminantModule(object):
         return False
 
     def chew(self):
-        pass
+        self.buf.skip(self.buf.available())
+        return {}

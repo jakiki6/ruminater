@@ -844,6 +844,27 @@ class JPEGModule(module.RuminantModule):
             elif typ == 0xe2 and self.buf.peek(12) == b"ICC_PROFILE\x00":
                 with self.buf.subunit():
                     chunk["data"]["icc-profile"] = chew(self.buf)
+            elif typ == 0xec and self.buf.peek(5) == b"Ducky":
+                self.buf.skip(5)
+
+                ducky_type = self.buf.ru16()
+                chunk["data"]["ducky-type"] = {
+                    1: "Quality",
+                    2: "Comment",
+                    3: "Copyright"
+                }.get(ducky_type,
+                      "Unknown") + f" (0x{hex(ducky_type)[2:].zfill(4)})"
+
+                match ducky_type:
+                    case 1:
+                        self.buf.skip(2)
+                        chunk["data"]["value"] = self.buf.ru32()
+                    case 2 | 3:
+                        length = self.buf.ru32()
+                        chunk["data"]["value"] = self.buf.rs(length)
+                    case _:
+                        chunk["data"]["value"] = self.buf.readunit().hex()
+                        chunk["data"]["unknown"] = True
             elif typ == 0xed and self.buf.peek(18) == b"Photoshop 3.0\x008BIM":
                 with self.buf.subunit():
                     chunk["data"]["iptc"] = chew(self.buf)
@@ -1452,3 +1473,131 @@ class TIFFModule(module.RuminantModule):
         self.buf.skip(self.buf.available())
 
         return meta
+
+
+@module.register
+class GifModule(module.RuminantModule):
+
+    def identify(buf):
+        return buf.peek(3) == b"GIF"
+
+    def chew(self):
+        meta = {}
+        meta["type"] = "gif"
+
+        self.buf.skip(3)
+
+        meta["version"] = self.buf.rs(3)
+
+        meta["header"] = {}
+        meta["header"]["width"] = self.buf.ru16l()
+        meta["header"]["height"] = self.buf.ru16l()
+
+        gct = self.buf.ru8()
+        meta["header"]["gct-size"] = 2**((gct >> 5) + 1) * 3
+        meta["header"]["is-sorted"] = bool((gct >> 4) & 1)
+        meta["header"]["color-resolution"] = (gct >> 1) & 0x07
+        meta["header"]["gct-present"] = bool(gct & 1)
+        meta["header"]["background-color-index"] = self.buf.ru8()
+        meta["header"]["pixel-aspect-ratio"] = self.buf.ru8()
+
+        if meta["header"]["gct-present"]:
+            self.buf.skip(meta["header"]["gct-size"])
+
+        meta["blocks"] = []
+        running = True
+        while running:
+            block = {}
+            block["offset"] = self.buf.tell()
+
+            typ = self.buf.ru8()
+            match typ:
+                case 0x2c:
+                    block["type"] = "image-descriptor"
+                    block["data"] = {}
+                    block["data"]["left"] = self.buf.ru16()
+                    block["data"]["top"] = self.buf.ru16()
+                    block["data"]["width"] = self.buf.ru16()
+                    block["data"]["height"] = self.buf.ru16()
+
+                    lct = self.buf.ru8()
+                    block["data"]["lct-present"] = bool(lct & 0x80)
+                    block["data"]["is-interlaced"] = bool(lct & 0x40)
+                    block["data"]["is-sorted"] = bool(lct & 0x20)
+                    block["data"]["reserved"] = (lct >> 3) & 0x03
+                    block["data"]["lct-size"] = 2**((lct & 0x07) + 1) * 3
+
+                    if block["data"]["lct-present"]:
+                        self.buf.skip(block["data"]["lct-size"])
+
+                    block["data"]["lzw-minimum-code-size"] = self.buf.ru8()
+                    block["subdata-length"] = len(self.read_subblocks())
+                case 0x21:
+                    block["type"] = "extension"
+                    label = self.buf.ru8()
+                    block["label"] = label
+                    block["size"] = self.buf.ru8()
+
+                    processed_subdata = False
+                    match label:
+                        case 0xf9:
+                            block["extension"] = "gce"
+
+                            flags = self.buf.ru8()
+                            block["data"] = {
+                                "reserved": flags >> 5,
+                                "disposal-method": (flags >> 2) & 0x07,
+                                "user-input-flag": bool(flags & 0x02),
+                                "transparent-color-flag": bool(flags & 0x01),
+                                "delay-time": self.buf.ru16(),
+                                "transparent-color-index": self.buf.ru8()
+                            }
+                        case 0xfe:
+                            block["extension"] = "comment"
+                            block["data"] = self.read_subblocks().decode(
+                                "utf-8")
+                            processed_subdata = True
+                        case 0xff:
+                            block["extension"] = "application"
+                            block["application"] = self.buf.rs(block["size"])
+
+                            match block["application"]:
+                                case "NETSCAPE2.0":
+                                    data = self.read_subblocks()
+                                    block["data"] = {
+                                        "id": data[0],
+                                        "loop":
+                                        int.from_bytes(data[1:], "big")
+                                    }
+
+                                    processed_subdata = True
+                                case _:
+                                    block["unknown"] = True
+                        case _:
+                            block["data"] = self.buf.rh(block["size"])
+                            block["unknown"] = True
+
+                    if not processed_subdata:
+                        if self.buf.peek(1)[0]:
+                            block["subdata"] = self.read_subblocks().hex()
+                        else:
+                            self.buf.skip(1)
+                case 0x3b:
+                    block["type"] = "end"
+                    running = False
+                case _:
+                    raise ValueError(f"Unknown GIF block type {typ}")
+
+            meta["blocks"].append(block)
+
+        return meta
+
+    def read_subblocks(self):
+        data = b""
+
+        while True:
+            length = self.buf.ru8()
+            if length == 0:
+                return data
+
+            data += self.buf.read(length)
