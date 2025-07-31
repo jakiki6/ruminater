@@ -36,6 +36,9 @@ Ruminant is still in early alpha but it can already process the following file t
 * RIFF files
   * WebP
 * GIF files
+* EBML files
+  * Matroska
+    * WebM
 
 # How do I install it?
 Run `pip3 install ruminant`.
@@ -63,7 +66,5 @@ Feel free to send me a sample so I can add a parser for it :)
 # TODO list
 * more file formats
   * MP3
-  * WebM
   * Opus
-  * Matroska
 * ZIP family detection (e.g. DOCX is also a ZIP file)

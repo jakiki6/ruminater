@@ -1,4 +1,6 @@
 import uuid
+import struct
+import datetime
 from .. import module, utils
 
 
@@ -854,3 +856,171 @@ class Mp4Module(module.RuminantModule):
         except Exception:
             # sei parsing can fail with cenc extensions
             pass
+
+
+@module.register
+class MatroskaModule(module.RuminantModule):
+    FIELDS = {
+        0x1a45dfa3: ("EMBL", "master"),
+        0x18538067: ("Segment", "master"),
+        0x4286: ("EBMLVersion", "uint"),
+        0x42f7: ("EBMLReadVersion", "uint"),
+        0x42f2: ("EBMLMaxIDLength", "uint"),
+        0x42f3: ("EBMLMaxSizeLength", "uint"),
+        0x4282: ("DocType", "ascii"),
+        0x4287: ("DocTypeVersion", "uint"),
+        0x4285: ("DocTypeReadVersion", "uint"),
+        0x114d9b74: ("SeekHead", "master"),
+        0x4dbb: ("Seek", "master"),
+        0x53ab: ("SeekID", "hex"),
+        0x53ac: ("SeekPosition", "uint"),
+        0x1549a966: ("Info", "master"),
+        0x1654ae6b: ("Tracks", "master"),
+        0x1254c367: ("Tags", "master"),
+        0x1f43b675: ("Cluster", "skipped-master"),
+        0x2ad7b1: ("TimestampScale", "uint"),
+        0x1c53bb6b: ("Cues", "master"),
+        0x67: ("Timestamp", "uint"),
+        0x27: ("Position", "uint"),
+        0x4d80: ("MuxingApp", "utf8"),
+        0x5741: ("WritingApp", "utf8"),
+        0x73a4: ("SegmentUUID", "uuid"),
+        0x4489: ("Duration", "float"),
+        0xbf: ("CRC-32", "hex"),
+        0xae: ("TrackEntry", "master"),
+        0xec: ("Void", "blob"),
+        0xd7: ("TrackNumber", "uint"),
+        0x73c5: ("TrackUID", "uint"),
+        0x9c: ("FlagLacing", "uint"),
+        0x22b59c: ("Language", "utf8"),
+        0x86: ("CodecID", "ascii"),
+        0x83: ("TrackType", "uint"),
+        0x23e383: ("DefaultDuration", "uint"),
+        0xe0: ("Video", "master"),
+        0x55ee: ("MaxBlockAdditionID", "uint"),
+        0xb0: ("PixelWidth", "uint"),
+        0xba: ("PixelHeight", "uint"),
+        0x9a: ("FlagInterlaced", "uint"),
+        0x55b0: ("Colour", "master"),
+        0x55ba: ("TransferCharacteristics", "uint"),
+        0x55b1: ("MatrixCoefficients", "uint"),
+        0x55bb: ("Primaries", "uint"),
+        0x55b9: ("Range", "uint"),
+        0x55b7: ("ChromaSitingHorz", "uint"),
+        0x55b8: ("ChromaSitingVert", "uint"),
+        0x63a2: ("CodecPrivate", "binary"),
+        0x56aa: ("CodecDelay", "uint"),
+        0x56bb: ("SeekPreRoll", "uint"),
+        0xe1: ("Audio", "master"),
+        0x9f: ("Channels", "uint"),
+        0xb5: ("SamplingFrequency", "float"),
+        0x6264: ("BitDepth", "uint"),
+        0x7373: ("Tag", "master"),
+        0xe7: ("Timestamp", "uint"),
+        0xa3: ("SimpleBlock", "binary"),
+        0x63c0: ("Targets", "master"),
+        0x67c8: ("SimpleTarget", "master"),
+        0x45a3: ("TagName", "utf8"),
+        0x4487: ("TagString", "utf8"),
+        0x63c5: ("TagTrackUID", "uint"),
+        0xa0: ("BlockGroup", "master"),
+        0xa1: ("Block", "binary"),
+        0x75a2: ("DiscardPadding", "sint"),
+        0xbb: ("CuePoint", "master"),
+        0xb3: ("CueTime", "uint"),
+        0xb7: ("CueTrackPositions", "master"),
+        0xf7: ("CueTrack", "uint"),
+        0xf1: ("CueClusterPosition", "uint"),
+        0xf0: ("CueRelativePosition", "uint")
+    }
+
+    def identify(buf):
+        return buf.peek(4) == b"\x1a\x45\xdf\xa3"
+
+    def chew(self):
+        meta = {}
+        meta["type"] = "matroska"
+
+        meta["tags"] = []
+        while self.buf.available():
+            meta["tags"].append(self.read_tag())
+
+        return meta
+
+    def read_vint(self, m=True):
+        val = self.buf.ru8()
+
+        mask = 0x80
+        length = 1
+        while length <= 8 and not (val & mask):
+            mask >>= 1
+            length += 1
+
+        if length > 8:
+            raise ValueError("VINT too long")
+
+        if m:
+            val &= (mask - 1)
+        for _ in range(length - 1):
+            val <<= 8
+            val |= self.buf.ru8()
+
+        return val
+
+    def read_tag(self):
+        tag_id = self.read_vint(False)
+        tag_length = self.read_vint()
+
+        tag = {}
+        tag["name"], tag["type"] = self.FIELDS.get(
+            tag_id, (f"Unknown ({hex(tag_id)})", "unknown"))
+
+        tag["length"] = tag_length
+
+        self.buf.pushunit()
+        self.buf.setunit(tag_length)
+
+        match tag["type"]:
+            case "sint":
+                tag["data"] = int.from_bytes(self.buf.readunit(),
+                                             "big",
+                                             signed=True)
+            case "uint":
+                tag["data"] = int.from_bytes(self.buf.readunit(), "big")
+            case "float":
+                match tag_length:
+                    case 0:
+                        tag["data"] = 0.0
+                    case 4:
+                        tag["data"] = struct.unpack(">f", self.buf.read(4))[0]
+                    case 8:
+                        tag["data"] = struct.unpack(">d", self.buf.read(8))[0]
+                    case _:
+                        raise ValueError(f"Invalid float size {tag_length}")
+            case "ascii":
+                tag["data"] = self.buf.rs(tag_length, "ascii")
+            case "utf8":
+                tag["data"] = self.buf.rs(tag_length, "utf-8")
+            case "date":
+                tag["data"] = (datetime.datetime(
+                    2001, 1, 1, tzinfo=datetime.timezone.utc) +
+                               datetime.timedelta(microseconds=int.from_bytes(
+                                   self.buf.readunit(), "big", signed=True) /
+                                                  1000)).isoformat()
+            case "master":
+                if tag_length == 0:
+                    self.buf.popunit()
+                    self.buf.pushunit()
+
+                tag["data"] = []
+                while self.buf.unit > 0:
+                    tag["data"].append(self.read_tag())
+            case "hex":
+                tag["data"] = self.buf.rh(tag_length)
+            case "uuid":
+                tag["data"] = utils.to_uuid(self.buf.read(tag_length))
+
+        self.buf.skipunit()
+        self.buf.popunit()
+
+        return tag
