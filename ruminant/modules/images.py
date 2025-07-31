@@ -1,4 +1,5 @@
 import zlib
+import datetime
 from . import chew
 from .. import module, utils
 
@@ -1114,6 +1115,10 @@ class PNGModule(module.RuminantModule):
                             chunk["data"]["red"] = self.buf.ru16()
                             chunk["data"]["green"] = self.buf.ru16()
                             chunk["data"]["blue"] = self.buf.ru16()
+                case "tIME":
+                    chunk["data"]["date"] = datetime.datetime(self.buf.ru16(), self.buf.ru8(), self.buf.ru8(), self.buf.ru8(), self.buf.ru8(), self.buf.ru8(), tzinfo=datetime.timezone.utc).isoformat()
+                case "gAMA":
+                    chunk["data"]["gamma"] = self.buf.ru32() / 100000
                 case "IDAT" | "IEND" | "PLTE" | "tRNS" | "npOl" | "npTc":
                     pass
                 case _:
