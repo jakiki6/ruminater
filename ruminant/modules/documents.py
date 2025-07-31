@@ -122,11 +122,11 @@ class ReparsePoint(Exception):
 @module.register
 class PdfModule(module.RuminantModule):
     TOKEN_PATTERN = re.compile(
-        r"( << | >> | \[ | \] | /[^\s<>/\[\]()]+ | \d+\s+\d+\s+R | \d+\.\d+ | \d+ | \( (?: [^\\\)] | \\ . )* \) | <[0-9A-Fa-f\s]*> | true | false | null )",  # noqa: E501
+        r"( \s | << | >> | \[ | \] | /[^\s<>/\[\]()]+ | \d+\s+\d+\s+R | \d+\.\d+ | \d+ | \( (?: [^\\\)] | \\ . )* \) | <[0-9A-Fa-f\s]*> | true | false | null )",  # noqa: E501
         re.VERBOSE | re.DOTALL,
     )
     INDIRECT_OBJECT_PATTERN = re.compile(r"^(\d+) (\d+) R$")
-    XREF_PATTERN = re.compile(r"^(\d{10}) (\d{5}) ([nf])\s.*$")
+    XREF_PATTERN = re.compile(r"^(\d{10}) (\d{5}) ([nf]).*$")
 
     def identify(buf):
         return buf.peek(5) == b"%PDF-"
@@ -390,7 +390,8 @@ class PdfModule(module.RuminantModule):
     @classmethod
     def tokenize(cls, s):
         for match in cls.TOKEN_PATTERN.finditer(s):
-            yield match.group(0)
+            if match.group(0) not in ("\r", "\n", " "):
+                yield match.group(0)
 
     @classmethod
     def parse_dict(cls, tokens):
