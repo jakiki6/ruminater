@@ -23,7 +23,9 @@ Ruminant is still in early alpha but it can already process the following file t
   * EXIF metadata
 * TIFF files
   * EXIF metadata (EXIF metadata is literally stored in a TIFF file)
-* MP4 files
+* ISO files
+  * MP4 files
+  * AVIF files
   * XMP metadata
   * AVC1 x264 banners
   * all of the DRM stuff that Netflix puts in their streams

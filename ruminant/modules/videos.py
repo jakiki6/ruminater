@@ -15,7 +15,7 @@ def mp4_decode_language(lang_bytes):
 
 
 @module.register
-class Mp4Module(module.RuminantModule):
+class IsoModule(module.RuminantModule):
 
     def identify(buf):
         return buf.peek(8)[4:] == b"ftyp"
@@ -23,7 +23,7 @@ class Mp4Module(module.RuminantModule):
     def chew(self):
         file = {}
 
-        file["type"] = "mp4"
+        file["type"] = "iso"
         file["atoms"] = []
         while not self.buf.isend():
             file["atoms"].append(self.read_atom())
@@ -72,8 +72,8 @@ class Mp4Module(module.RuminantModule):
 
         if typ in ("moov", "trak", "mdia", "minf", "dinf", "stbl", "udta",
                    "ilst", "mvex", "moof", "traf", "gsst", "gstd", "sinf",
-                   "schi", "cprt", "trkn",
-                   "aART") or (typ[0] == "©"
+                   "schi", "cprt", "trkn", "aART", "iprp",
+                   "ipco") or (typ[0] == "©"
                                and self.buf.peek(8)[4:8] == b"data"):
             self.read_more(atom)
         elif typ in ("ftyp", "styp"):
@@ -725,6 +725,169 @@ class Mp4Module(module.RuminantModule):
 
             self.buf.skipunit()
             self.buf.popunit()
+        elif typ == "pitm":
+            version = self.read_version(atom)
+            atom["data"]["item-id"] = self.buf.ru32(
+            ) if version > 0 else self.buf.ru16()
+        elif typ == "iloc":
+            version = self.read_version(atom)
+
+            temp = self.buf.ru8()
+            offset_size = temp >> 4
+            atom["data"]["offset-size"] = offset_size
+            length_size = temp & 0x0f
+            atom["data"]["length-size"] = length_size
+            temp = self.buf.ru8()
+            base_offset_size = temp >> 4
+            atom["data"]["base-offset-size"] = base_offset_size
+            index_size = temp & 0x0f
+            atom["data"]["index-size"] = index_size
+
+            item_count = self.buf.ru32() if version >= 2 else self.buf.ru16()
+            atom["data"]["item-count"] = item_count
+
+            atom["data"]["items"] = []
+            for i in range(0, item_count):
+                item = {}
+                item["id"] = self.buf.ru32(
+                ) if version >= 2 else self.buf.ru16()
+
+                if version > 0:
+                    temp = self.buf.ru16()
+                    item["construction-method"] = temp & 0x0f
+                    item["reserved"] = temp >> 4
+
+                base_offset = int.from_bytes(self.buf.read(base_offset_size),
+                                             "big")
+                item["base-offset"] = base_offset
+
+                extent_count = self.buf.ru16()
+                item["extent-count"] = extent_count
+
+                item["extents"] = []
+                for j in range(0, extent_count):
+                    extent = {}
+
+                    if version > 0 and index_size > 0:
+                        extent["index"] = int.from_bytes(
+                            self.buf.read(index_size), "big")
+
+                    extent["offset"] = int.from_bytes(
+                        self.buf.read(offset_size), "big")
+                    extent["length"] = int.from_bytes(
+                        self.buf.read(length_size), "big")
+
+                    item["extents"].append(extent)
+
+                atom["data"]["items"].append(item)
+        elif typ == "iinf":
+            version = self.read_version(atom)
+            entry_count = self.buf.ru16() if version < 1 else self.buf.ru32()
+            atom["data"]["item-count"] = entry_count
+
+            atom["data"]["items"] = []
+            for i in range(0, entry_count):
+                atom["data"]["items"].append(self.read_atom())
+
+        elif typ == "infe":
+            version = self.read_version(atom)
+            if version < 2:
+                atom["data"]["id"] = self.buf.ru16()
+                atom["data"]["protection-index"] = self.buf.ru16()
+                atom["data"]["name"] = self.buf.rzs()
+                atom["data"]["type"] = self.buf.rzs()
+                atom["data"]["encoding"] = self.buf.rzs()
+
+            if version == 1:
+                extension_type = self.buf.rs(4)
+                atom["data"]["extension-type"] = extension_type
+                if extension_type == "fdel":
+                    atom["data"]["extension"] = {}
+                    atom["data"]["extension"][
+                        "content-location"] = self.buf.rzs()
+                    atom["data"]["extension"]["content-md5"] = self.buf.rzs()
+                    atom["data"]["extension"][
+                        "content-length"] = self.buf.ru64()
+                    atom["data"]["extension"][
+                        "transfer-length"] = self.buf.ru64()
+                    count = self.buf.ru8()
+                    atom["data"]["extension"]["entry-count"] = count
+                    atom["data"]["extension"]["entries"] = [
+                        self.buf.ru32() for j in range(0, count)
+                    ]
+
+            if version >= 2:
+                atom["data"]["id"] = self.buf.ru16(
+                ) if version == 2 else self.buf.ru32()
+                atom["data"]["protection-index"] = self.buf.ru16()
+                item_type = self.buf.rs(4)
+                atom["data"]["type"] = item_type
+                atom["data"]["name"] = self.buf.rzs()
+
+                match item_type:
+                    case "mime":
+                        atom["data"]["content-type"] = self.buf.rzs()
+                        atom["data"]["content-encoding"] = self.buf.rzs()
+                    case "uri ":
+                        atom["data"]["uri-type"] = self.buf.rzs()
+        elif typ == "ispe":
+            version = self.read_version(atom)
+            atom["data"]["width"] = self.buf.ru32()
+            atom["data"]["height"] = self.buf.ru32()
+        elif typ == "pixi":
+            version = self.read_version(atom)
+            channel_count = self.buf.ru8()
+            atom["data"]["channel-count"] = channel_count
+            atom["data"]["channel-bit-depths"] = [
+                self.buf.ru8() for i in range(0, channel_count)
+            ]
+        elif typ == "av1C":
+            temp = self.buf.ru8()
+            atom["data"]["version"] = temp & 0x7f
+            temp = self.buf.ru8()
+            atom["data"]["seq-profile"] = temp >> 5
+            atom["data"]["seq-level-idx-0"] = temp & 0x1f
+            temp = self.buf.ru8()
+            atom["data"]["seq-tier-0"] = bool(temp & 0x80)
+            atom["data"]["high-bitdepth"] = bool(temp & 0x40)
+            atom["data"]["twelve-bit"] = bool(temp & 0x20)
+            atom["data"]["monochrome"] = bool(temp & 0x10)
+            atom["data"]["chroma-subsampling-x"] = bool(temp & 0x08)
+            atom["data"]["chroma-subsampling-y"] = bool(temp & 0x04)
+            atom["data"]["chroma-sample-poisition"] = temp & 0x03
+            temp = self.buf.ru8()
+            atom["data"]["reserved"] = temp >> 5
+            atom["data"]["initial-presentation-delay-present"] = bool(temp
+                                                                      & 0x10)
+            atom["data"]["initial-presentation-delay-minus-one"] = temp & 0x0f
+        elif typ == "ipma":
+            version = self.read_version(atom)
+            item_count = self.buf.ru32() if version > 0 else self.buf.ru16()
+            atom["data"]["item-count"] = item_count
+
+            atom["data"]["items"] = []
+            for i in range(0, item_count):
+                item = {}
+                item["id"] = self.buf.ru32() if version > 0 else self.buf.ru16(
+                )
+                association_count = self.buf.ru8()
+                item["association-count"] = association_count
+
+                item["associations"] = []
+                for j in range(0, association_count):
+                    association = {}
+                    if atom["data"]["flags"] & 1:
+                        entry = self.buf.ru16()
+                        association["essential"] = bool(entry & 0x8000)
+                        association["index"] = entry & 0x7fff
+                    else:
+                        entry = self.buf.ru8()
+                        association["essential"] = bool(entry & 0x80)
+                        association["index"] = entry & 0x7f
+
+                    item["associations"].append(association)
+
+                atom["data"]["items"].append(item)
         elif typ[0] == "©" or typ == "iods":
             atom["data"]["payload"] = self.buf.readunit().hex()
         elif typ[0] == "\x00" or typ == "mdat":

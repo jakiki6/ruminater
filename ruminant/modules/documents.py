@@ -296,22 +296,24 @@ class PdfModule(module.RuminantModule):
                     if "DecodeParms" in obj["value"]:
                         params = self.resolve(obj["value"]["DecodeParms"])
 
-                        match params["Predictor"]:
-                            case 0:
-                                pass
-                            case 10 | 11 | 12 | 13 | 14 | 15:
-                                buf = Buf(
-                                    png_decode(
-                                        buf.read(), params["Columns"],
-                                        math.ceil(
-                                            params["Columns"] *
-                                            params.get("Colors", 1) *
-                                            params.get("BitsPerComponent", 8) /
-                                            8) + 1))
-                            case _:
-                                raise ValueError(
-                                    f"Unknown predictor: {params['Predictor']}"  # noqa: E501
-                                )
+                        if "Predictor" in params:
+                            match params["Predictor"]:
+                                case 0:
+                                    pass
+                                case 10 | 11 | 12 | 13 | 14 | 15:
+                                    buf = Buf(
+                                        png_decode(
+                                            buf.read(), params["Columns"],
+                                            math.ceil(
+                                                params["Columns"] *
+                                                params.get("Colors", 1) *
+                                                params.get(
+                                                    "BitsPerComponent", 8) / 8)
+                                            + 1))
+                                case _:
+                                    raise ValueError(
+                                        f"Unknown predictor: {params['Predictor']}"  # noqa: E501
+                                    )
 
                     if packed is not None:
                         buf.seek(
