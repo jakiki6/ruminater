@@ -44,7 +44,7 @@ class IsoModule(module.RuminantModule):
 
         bak = self.buf.backup()
 
-        while self.buf.unit > 0:
+        while self.buf.unit > 8:
             atom["data"]["atoms"].append(self.read_atom())
 
         self.buf.restore(bak)
@@ -71,9 +71,9 @@ class IsoModule(module.RuminantModule):
         self.buf.setunit(length)
 
         if typ in ("moov", "trak", "mdia", "minf", "dinf", "stbl", "udta",
-                   "ilst", "mvex", "moof", "traf", "gsst", "gstd", "sinf",
-                   "schi", "cprt", "trkn", "aART", "iprp",
-                   "ipco") or (typ[0] == "©"
+                   "mvex", "moof", "traf", "gsst", "gstd", "sinf", "schi",
+                   "cprt", "trkn", "aART", "iprp", "ipco", "meta",
+                   "tapt") or (typ[0] == "©"
                                and self.buf.peek(8)[4:8] == b"data"):
             self.read_more(atom)
         elif typ in ("ftyp", "styp"):
@@ -216,7 +216,7 @@ class IsoModule(module.RuminantModule):
             atom["data"]["pre_defined"] = self.buf.rh(4)
             atom["data"]["handler_type"] = self.buf.rs(4)
             atom["data"]["reserved"] = self.buf.rh(12)
-            atom["data"]["name"] = self.buf.readunit()[:-1].decode("utf-8")
+            atom["data"]["name"] = self.buf.readunit().decode("utf-8")
         elif typ == "vmhd":
             self.read_version(atom)
             atom["data"]["graphicsmode"] = self.buf.ru16()
@@ -385,9 +385,6 @@ class IsoModule(module.RuminantModule):
         elif typ == "esds":
             self.read_version(atom)
             atom["data"]["or"] = self.buf.readunit().hex()
-        elif typ == "meta":
-            self.read_version(atom)
-            self.read_more(atom)
         elif typ == "data":
             self.read_version(atom)
             atom["data"]["type"] = self.buf.ru32()
@@ -888,9 +885,31 @@ class IsoModule(module.RuminantModule):
                     item["associations"].append(association)
 
                 atom["data"]["items"].append(item)
+        elif typ == "mebx":
+            atom_count = self.buf.ru64()
+            atom["data"]["atom-count"] = atom_count
+
+            atom["data"]["atoms"] = []
+            for i in range(0, atom_count):
+                atom["data"]["atoms"].append(self.read_atom())
+        elif typ == "ilst":
+            atom["entries"] = []
+            while self.buf.unit:
+                length = self.buf.ru32()
+                atom["entries"].append({
+                    "id": self.buf.ru32(),
+                    "content": self.read_atom()
+                })
+        elif typ in ("clef", "prof", "enof"):
+            self.read_version(atom)
+            atom["data"]["width"] = self.buf.rfp32()
+            atom["data"]["height"] = self.buf.rfp32()
+        elif typ == "alis":
+            self.read_version(atom)
+            atom["data"]["name"] = self.buf.rzs()
         elif typ[0] == "©" or typ == "iods":
             atom["data"]["payload"] = self.buf.readunit().hex()
-        elif typ[0] == "\x00" or typ == "mdat":
+        elif typ[0] == "\x00" or typ in ("mdat", "wide"):
             pass
         else:
             atom["unknown"] = True
