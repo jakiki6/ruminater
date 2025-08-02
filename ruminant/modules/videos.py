@@ -538,7 +538,8 @@ class IsoModule(module.RuminantModule):
                     "value": value
                 })
         elif typ == "name":
-            self.read_version(atom)
+            if self.buf.unit >= 4:
+                self.read_version(atom)
             atom["data"]["name"] = self.buf.readunit().decode("utf-8")
         elif typ == "titl":
             self.read_version(atom)
