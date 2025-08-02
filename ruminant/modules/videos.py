@@ -2,6 +2,7 @@ import uuid
 import struct
 import datetime
 from .. import module, utils
+from . import chew
 
 
 def mp4_decode_language(lang_bytes):
@@ -72,8 +73,8 @@ class IsoModule(module.RuminantModule):
 
         if typ in ("moov", "trak", "mdia", "minf", "dinf", "stbl", "udta",
                    "mvex", "moof", "traf", "gsst", "gstd", "sinf", "schi",
-                   "cprt", "trkn", "aART", "iprp", "ipco", "meta",
-                   "tapt") or (typ[0] == "©"
+                   "cprt", "trkn", "aART", "iprp", "ipco", "tapt", "tref",
+                   "gmhd") or (typ[0] == "©"
                                and self.buf.peek(8)[4:8] == b"data"):
             self.read_more(atom)
         elif typ in ("ftyp", "styp"):
@@ -285,8 +286,8 @@ class IsoModule(module.RuminantModule):
                     atom["data"]["transfer_characteristics"] = self.buf.ru16()
                     atom["data"]["matrix_coefficients"] = self.buf.ru16()
                 case "rICC" | "prof":
-                    atom["data"]["icc_profile_data"] = self.buf.readunit().hex(
-                    )
+                    atom["data"]["icc_profile_data"] = chew(
+                        b"ICC_PROFILE\x00\x00\x00" + self.buf.readunit())
                 case "nclx":
                     atom["data"]["color_primaries"] = self.buf.ru16()
                     atom["data"]["transfer_characteristics"] = self.buf.ru16()
@@ -754,6 +755,7 @@ class IsoModule(module.RuminantModule):
                     item["construction-method"] = temp & 0x0f
                     item["reserved"] = temp >> 4
 
+                item["data-reference-index"] = self.buf.ru16()
                 base_offset = int.from_bytes(self.buf.read(base_offset_size),
                                              "big")
                 item["base-offset"] = base_offset
@@ -907,8 +909,88 @@ class IsoModule(module.RuminantModule):
         elif typ == "alis":
             self.read_version(atom)
             atom["data"]["name"] = self.buf.rzs()
-        elif typ[0] == "©" or typ == "iods":
-            atom["data"]["payload"] = self.buf.readunit().hex()
+        elif typ == "mpvd":
+            with self.buf.subunit():
+                atom["data"]["content"] = chew(self.buf)
+        elif typ == "meta":
+            if self.buf.pu32() == 0:
+                self.buf.skip(4)
+
+            self.read_more(atom)
+        elif typ == "iref":
+            version = self.read_version(atom)
+
+            atom["data"]["from"] = self.buf.ru16(
+            ) if version == 0 else self.buf.ru32()
+            atom["data"]["reference-count"] = self.buf.ru16()
+        elif typ == "idat":
+            atom["data"]["length"] = self.buf.unit
+        elif typ == "irot":
+            atom["data"]["value"] = self.buf.ru8()
+        elif typ == "smta":
+            self.read_version(atom)
+            self.read_more(atom)
+        elif typ == "mdln":
+            atom["data"]["model-name"] = self.buf.rs(self.buf.unit)
+        elif typ == "sefd":
+            # algorithm is from https://github.com/eilam-ashbell/seft-parser/blob/4083f85aad99e01af014d089bf0b0d42acf27ad4/lib/esm/classes/Seft.js  # noqa: E501
+            with self.buf.sub(self.buf.unit):
+                length = self.buf.available()
+
+                self.buf.seek(length - 8)
+                headers_block_length = self.buf.ru32l()
+                headers_block_start_offset = length - (headers_block_length +
+                                                       8)
+                self.buf.seek(headers_block_start_offset + 4)
+                atom["data"]["seft-version"] = self.buf.ru32l()
+                record_count = self.buf.ru32l()
+                atom["data"]["record-count"] = record_count
+
+                atom["data"]["records"] = []
+                for i in range(0, record_count):
+                    record = {}
+                    record["padding"] = self.buf.ru16l()
+                    record["type"] = self.buf.ru16l()
+                    offset = self.buf.ru32l()
+                    record["offset"] = offset
+                    record_length = self.buf.ru32l()
+                    record["length"] = record_length
+                    record["content"] = {}
+
+                    with self.buf:
+                        self.buf.seek(headers_block_start_offset - offset)
+                        record["content"]["padding"] = self.buf.ru16l()
+                        record["content"]["type"] = self.buf.ru16l()
+                        key_length = self.buf.ru32l()
+                        record["content"]["key-length"] = key_length
+                        value_length = record_length - key_length - 8
+                        record["content"]["value-length"] = value_length
+                        record["content"]["name"] = self.buf.rs(key_length)
+                        record["content"]["value"] = self.buf.rs(
+                            value_length, "latin-1")
+
+                    atom["data"]["records"].append(record)
+        elif typ == "clap":
+            atom["data"]["clean-aperture-width"] = self.buf.ru32(
+            ) / self.buf.ru32()
+            atom["data"]["clean-aperture-height"] = self.buf.ru32(
+            ) / self.buf.ru32()
+            atom["data"]["horiz-off"] = self.buf.ru32() / self.buf.ru32()
+            atom["data"]["vert-off"] = self.buf.ru32() / self.buf.ru32()
+        elif typ == "gmin":
+            self.read_version(atom)
+            atom["data"]["graphicsmode"] = self.buf.ru16()
+            atom["data"]["opcolor"] = [self.buf.ru16() for _ in range(0, 3)]
+            atom["data"]["balance"] = self.buf.ru16()
+            atom["data"]["reserved"] = self.buf.rh(2)
+        elif typ[0] == "©" or typ in ("iods", "SDLN", "smrd"):
+            atom["data"]["payload"] = self.buf.readunit().decode("latin-1")
+        elif typ in ("hint", "cdsc", "font", "hind", "vdep", "vplx", "subt",
+                     "cdep"):
+            atom["data"]["track-id"] = self.buf.ru32()
+        elif typ in ("lpcm"):
+            # TODO
+            pass
         elif typ[0] == "\x00" or typ in ("mdat", "wide"):
             pass
         else:

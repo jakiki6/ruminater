@@ -26,12 +26,14 @@ Ruminant is still in early alpha but it can already process the following file t
 * ISO files
   * MP4 files
   * AVIF files
+  * HEIF/HEIC stuff
   * XMP metadata
   * AVC1 x264 banners
   * all of the DRM stuff that Netflix puts in their streams
     * CENC
     * PlayReady
     * Widevine
+  * SEFT metadata
 * ICC profiles
   * EP0763801A2 extension
 * TrueType fonts
