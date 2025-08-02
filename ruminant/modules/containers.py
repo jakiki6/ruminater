@@ -1,7 +1,7 @@
 from . import chew
-from .. import module
+from .. import module, utils
 
-import zipfile
+import tempfile
 
 
 @module.register
@@ -11,34 +11,74 @@ class ZipModule(module.RuminantModule):
         return buf.peek(4) == b"\x50\x4b\x03\x04"
 
     def chew(self):
-        zf = zipfile.ZipFile(self.buf, "r")
+        meta = {}
+        meta["type"] = "zip"
 
-        files = []
-        for fileinfo in zf.infolist():
+        self.buf.search(b"\x50\x4b\x05\x06")
+
+        self.buf.skip(4)
+        meta["eocd"] = {}
+        meta["eocd"]["disc-count"] = self.buf.ru16l()
+        meta["eocd"]["central-directory-first-disk"] = self.buf.ru16l()
+        meta["eocd"]["central-directory-local-count"] = self.buf.ru16l()
+        meta["eocd"]["central-directory-global-count"] = self.buf.ru16l()
+        meta["eocd"]["central-directory-size"] = self.buf.ru32l()
+        meta["eocd"]["central-directory-offset"] = self.buf.ru32l()
+        meta["eocd"]["comment"] = self.buf.rs(self.buf.ru16l())
+        eof = self.buf.tell()
+
+        self.buf.seek(meta["eocd"]["central-directory-offset"])
+
+        meta["files"] = []
+        while self.buf.pu32() == 0x504b0102:
+            self.buf.skip(4)
+
             file = {}
-            file["name"] = fileinfo.filename
-            file["date"] = fileinfo.date_time
-            file["compression-type"] = fileinfo.compress_type
-            file["comment"] = fileinfo.comment.decode("utf-8")
-            file["extra"] = fileinfo.comment.hex()
-            file["create-system"] = fileinfo.create_system
-            file["create-version"] = fileinfo.create_version
-            file["extract-version"] = fileinfo.extract_version
-            file["flag-bits"] = fileinfo.flag_bits
-            file["volume"] = fileinfo.volume
-            file["internal-attr"] = fileinfo.internal_attr
-            file["external-attr"] = fileinfo.external_attr
-            file["compress-size"] = fileinfo.compress_size
+            file["meta"] = {}
+            file["meta"]["version-producer"] = self.buf.ru16l()
+            file["meta"]["version-needed"] = self.buf.ru16l()
+            file["meta"]["general-flags"] = self.buf.rh(2)
+            file["meta"]["compression-method"] = self.buf.ru16l()
+            file["meta"]["modification-time"] = self.buf.ru16l()
+            file["meta"]["modification-date"] = self.buf.ru16l()
+            file["meta"]["crc32"] = self.buf.rh(4)
+            file["meta"]["compressed-size"] = self.buf.ru32l()
+            file["uncompressed-size"] = self.buf.ru32l()
+            filename_length = self.buf.ru16l()
+            extra_field_length = self.buf.ru16l()
+            comment_length = self.buf.ru16l()
+            file["meta"]["start-disk"] = self.buf.ru16l()
+            file["meta"]["internal-attributes"] = self.buf.rh(2)
+            file["meta"]["external-attributes"] = self.buf.rh(4)
+            file["offset"] = self.buf.ru32l()
+            file["filename"] = self.buf.rs(filename_length)
+            file["meta"]["extra-field"] = self.buf.rs(extra_field_length)
+            file["meta"]["comment"] = self.buf.rs(comment_length)
 
-            file["content"] = chew(zf.open(fileinfo.filename, "r"))
+            with self.buf:
+                self.buf.seek(file["offset"])
+                assert self.buf.ru32() == 0x504b0304, "broken ZIP file"
+                self.buf.skip(22)
+                self.buf.skip(self.buf.ru16l() + self.buf.ru16l())
 
-            files.append(file)
+                match file["meta"]["compression-method"]:
+                    case 0:
+                        with self.buf.sub(file["uncompressed-size"]):
+                            file["data"] = chew(self.buf)
 
-        return {
-            "type": "zip",
-            "comment": zf.comment.decode("utf-8"),
-            "files": files,
-        }
+                    case 8:
+                        with self.buf.sub(file["meta"]["compressed-size"]):
+                            fd = tempfile.TemporaryFile()
+                            utils.stream_deflate(self.buf, fd,
+                                                 self.buf.available())
+                            fd.seek(0)
+
+                            file["data"] = chew(fd)
+
+            meta["files"].append(file)
+
+        self.buf.seek(eof)
+        return meta
 
 
 @module.register

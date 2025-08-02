@@ -151,6 +151,24 @@ class Buf(object):
     def cut(self):
         return self.sub(self.available())
 
+    def search(self, s, buf_length=1 << 24):
+        buf = b""
+        while True:
+            buf += self.read(
+                min(buf_length, self.unit if self.unit else buf_length))
+            if self.unit is not None and self.unit <= 0:
+                raise ValueError(f"pattern {s.hex()} not found")
+
+            if s not in buf:
+                buf = buf[-len(s):]
+            else:
+                index = buf.index(s)
+                overread = len(buf) - index
+                if self.unit is not None:
+                    self.unit += overread
+                self.seek(-overread, 1)
+                return
+
     def ru8(self):
         return int.from_bytes(self.read(1), "big")
 

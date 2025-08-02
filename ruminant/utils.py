@@ -1,6 +1,7 @@
 import uuid
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta
+import zlib
 
 
 def _xml_to_dict(elem):
@@ -86,3 +87,17 @@ def mp4_time_to_iso(mp4_time):
     mp4_epoch = datetime(1904, 1, 1, tzinfo=timezone.utc)
     dt = mp4_epoch + timedelta(seconds=mp4_time)
     return dt.isoformat()
+
+
+def stream_deflate(src, dst, compressed_size, chunk_size=1 << 24):
+    remaining = compressed_size
+    decompressor = zlib.decompressobj(-zlib.MAX_WBITS)
+
+    while remaining > 0:
+        chunk = src.read(min(chunk_size, remaining))
+        dst.write(decompressor.decompress(chunk))
+        remaining -= len(chunk)
+
+    flushed = decompressor.flush()
+    if flushed:
+        dst.write(flushed)

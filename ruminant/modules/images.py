@@ -924,31 +924,12 @@ class JPEGModule(module.RuminantModule):
                 chunk["data"]["spectral-selection-end"] = self.buf.ru8()
                 chunk["data"]["successive-approximation"] = self.buf.ru8()
 
-                image_length = 0
+                image_length = self.buf.tell()
                 self.buf.resetunit()
+                self.buf.search(b"\xff\xd9")
+                self.buf.setunit(0)
 
-                BUF_LENGTH = 1 << 24
-                buf = b""
-                while True:
-                    buf += self.buf.read(BUF_LENGTH)
-                    image_length += len(buf)
-
-                    if b"\xff\xd9" not in buf:
-                        if buf[-1] == b"\xff":
-                            buf = b"\xff"
-                        else:
-                            buf = b""
-                    else:
-                        index = buf.index(b"\xff\xd9")
-                        overread = len(buf) - index
-                        if self.buf.unit is not None:
-                            self.buf.unit += overread
-                        self.buf.seek(-overread, 1)
-                        image_length -= overread
-                        self.buf.setunit(0)
-                        break
-
-                chunk["data"]["image-length"] = image_length
+                chunk["data"]["image-length"] = self.buf.tell() - image_length
             elif typ == 0xd9:
                 should_break = True
 
