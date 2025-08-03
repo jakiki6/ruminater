@@ -1107,6 +1107,17 @@ class PNGModule(module.RuminantModule):
                         tzinfo=datetime.timezone.utc).isoformat()
                 case "gAMA":
                     chunk["data"]["gamma"] = self.buf.ru32() / 100000
+                case "sRGB":
+                    render_intent = self.buf.ru8()
+                    chunk["data"]["render-intent"] = {
+                        "raw": render_intent,
+                        "name": {
+                            0: "Perceptual",
+                            1: "Relative Colorimetric",
+                            2: "Saturation",
+                            3: "Absolute Colorimetric",
+                        }.get(render_intent, "Unknown"),
+                    }
                 case "IDAT" | "IEND" | "PLTE" | "tRNS" | "npOl" | "npTc":
                     pass
                 case _:

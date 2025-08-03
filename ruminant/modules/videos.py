@@ -1153,7 +1153,7 @@ class MatroskaModule(module.RuminantModule):
         0x4489: ("Duration", "float"),
         0xbf: ("CRC-32", "hex"),
         0xae: ("TrackEntry", "master"),
-        0xec: ("Void", "blob"),
+        0xec: ("Void", "binary"),
         0xd7: ("TrackNumber", "uint"),
         0x73c5: ("TrackUID", "uint"),
         0x9c: ("FlagLacing", "uint"),
@@ -1196,7 +1196,48 @@ class MatroskaModule(module.RuminantModule):
         0xb7: ("CueTrackPositions", "master"),
         0xf7: ("CueTrack", "uint"),
         0xf1: ("CueClusterPosition", "uint"),
-        0xf0: ("CueRelativePosition", "uint")
+        0xf0: ("CueRelativePosition", "uint"),
+        0x22b59d: ("LanguageBCP47", "ascii"),
+        0x54b0: ("DisplayWidth", "uint"),
+        0x54ba: ("DisplayHeight", "uint"),
+        0x536e: ("Name", "utf8"),
+        0x55ab: ("FlagHearingImpaired", "uint"),
+        0x88: ("FlagDefault", "uint"),
+        0xb2: ("CueDuration", "uint"),
+        0x4461: ("DateUTC", "date"),
+        0x55ae: ("FlagOriginal", "uint"),
+        0x63ca: ("TargetType", "ascii"),
+        0x1043a770: ("Chapters", "master"),
+        0x45b9: ("EditionEntry", "master"),
+        0x45bc: ("EditionUID", "uint"),
+        0xb6: ("ChapterAtom", "master"),
+        0x73c4: ("ChapterUID", "uint"),
+        0x91: ("ChapterTimeStart", "uint"),
+        0x80: ("ChapterDisplay", "master"),
+        0x85: ("ChapString", "utf8"),
+        0x437d: ("ChapLanguageBCP47", "ascii"),
+        0x7ba9: ("Title", "utf8"),
+        0x1941a469: ("Attachments", "master"),
+        0x68ca: ("TargetTypeValue", "uint"),
+        0x61a7: ("AttachedFile", "master"),
+        0x466e: ("FileName", "utf8"),
+        0x4660: ("FileMediaType", "ascii"),
+        0x465c: ("FileData", "blob"),
+        0x46ae: ("FileUID", "uint"),
+        0x6de7: ("MinCache", "uint"),
+        0x45db: ("EditionFlagDefault", "uint"),
+        0x45bd: ("EditionFlagHidden", "uint"),
+        0x98: ("ChapterFlagHidden", "uint"),
+        0x4598: ("ChapterFlagEnabled", "uint"),
+        0x437c: ("ChapLanguage", "ascii"),
+        0x92: ("ChapterTimeEnd", "uint"),
+        0x447a: ("TagLanguage", "ascii"),
+        0x78b5: ("OutputSamplingFrequency", "float"),
+        0x54b2: ("DisplayUnit", "uint"),
+        0x55ac: ("FlagVisualImpaired", "uint"),
+        0x45dd: ("EditionFlagOrdered", "uint"),
+        0x55aa: ("FlagForced", "uint"),
+        0x4484: ("TadDefault", "uint")
     }
 
     def identify(buf):
@@ -1284,6 +1325,11 @@ class MatroskaModule(module.RuminantModule):
                 tag["data"] = self.buf.rh(tag_length)
             case "uuid":
                 tag["data"] = utils.to_uuid(self.buf.read(tag_length))
+            case "blob":
+                with self.buf.sub(tag_length):
+                    tag["data"] = chew(self.buf)
+
+                self.buf.skip(tag_length)
 
         self.buf.skipunit()
         self.buf.popunit()
