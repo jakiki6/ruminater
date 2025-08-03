@@ -1213,7 +1213,7 @@ class MatroskaModule(module.RuminantModule):
         0xb6: ("ChapterAtom", "master"),
         0x73c4: ("ChapterUID", "uint"),
         0x91: ("ChapterTimeStart", "uint"),
-        0x80: ("ChapterDisplay", "master"),
+        0x80: ("ChapterDisplay", "libmkv-workaround"),
         0x85: ("ChapString", "utf8"),
         0x437d: ("ChapLanguageBCP47", "ascii"),
         0x7ba9: ("Title", "utf8"),
@@ -1237,7 +1237,11 @@ class MatroskaModule(module.RuminantModule):
         0x55ac: ("FlagVisualImpaired", "uint"),
         0x45dd: ("EditionFlagOrdered", "uint"),
         0x55aa: ("FlagForced", "uint"),
-        0x4484: ("TadDefault", "uint")
+        0x4484: ("TadDefault", "uint"),
+        0xb9: ("FlagEnabled", "uint"),
+        0x23314f: ("TrackTimestampScale", "float"),
+        0xaa: ("CodecDecodeAll", "uint"),
+        0x447b: ("TagLanguageBCP47", "ascii")
     }
 
     def identify(buf):
@@ -1330,6 +1334,31 @@ class MatroskaModule(module.RuminantModule):
                     tag["data"] = chew(self.buf)
 
                 self.buf.skip(tag_length)
+            case "libmkv-workaround":
+                # special case for old libmkv used by old HandBrake versions
+                # was fixed in f8af3e4 upstream
+                with self.buf:
+                    is_libmkv = False
+                    try:
+                        self.read_vint()
+                        assert self.read_vint() < tag_length
+                    except Exception:
+                        is_libmkv = True
+
+                if is_libmkv:
+                    tag["name"] = "MuxingApp"
+                    tag["type"] = "ascii"
+                    tag["data"] = self.buf.rs(tag_length, "ascii")
+                else:
+                    tag["type"] = "master"
+
+                    if tag_length == 0:
+                        self.buf.popunit()
+                        self.buf.pushunit()
+
+                    tag["data"] = []
+                    while self.buf.unit > 0:
+                        tag["data"].append(self.read_tag())
 
         self.buf.skipunit()
         self.buf.popunit()
