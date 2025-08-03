@@ -1067,11 +1067,16 @@ class IsoModule(module.RuminantModule):
         elif typ == "nmhd":
             self.read_version(atom)
         elif typ[0] == "©" or typ in ("iods", "SDLN", "smrd"):
-            atom["data"]["payload"] = self.buf.readunit().decode("latin-1")
+            if typ[:2] == "©T" and self.buf.pu16() == self.buf.unit - 4:
+                length = self.buf.ru16()
+                self.buf.skip(2)
+                atom["data"]["payload"] = self.buf.rs(length)
+            else:
+                atom["data"]["payload"] = self.buf.readunit().decode("latin-1")
         elif typ in ("hint", "cdsc", "font", "hind", "vdep", "vplx", "subt",
                      "cdep"):
             atom["data"]["track-id"] = self.buf.ru32()
-        elif typ in ("lpcm"):
+        elif typ in ("lpcm", "beam"):
             # TODO
             pass
         elif typ[0] == "\x00" or typ in ("mdat", "wide"):
