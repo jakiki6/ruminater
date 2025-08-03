@@ -984,6 +984,88 @@ class IsoModule(module.RuminantModule):
             atom["data"]["opcolor"] = [self.buf.ru16() for _ in range(0, 3)]
             atom["data"]["balance"] = self.buf.ru16()
             atom["data"]["reserved"] = self.buf.rh(2)
+        elif typ == "ac-3":
+            atom["data"]["reserved1"] = self.buf.rh(6)
+            atom["data"]["data-reference-index"] = self.buf.ru16()
+            atom["data"]["reserved2"] = self.buf.rh(8)
+            atom["data"]["channel-count"] = self.buf.ru16()
+            atom["data"]["sample-size"] = self.buf.ru16()
+            atom["data"]["reserved3"] = self.buf.rh(4)
+            atom["data"]["sampling-rate"] = self.buf.ru16()
+            atom["data"]["reserved4"] = self.buf.rh(2)
+            self.read_more(atom)
+        elif typ == "dac3":
+            value = self.buf.ru24()
+            atom["data"]["fscod"] = value >> 22
+            atom["data"]["bsid"] = (value >> 17) & ((1 << 5) - 1)
+            atom["data"]["bsmod"] = (value >> 14) & ((1 << 3) - 1)
+            atom["data"]["acmod"] = (value >> 11) & ((1 << 3) - 1)
+            atom["data"]["lfeon"] = (value >> 10) & ((1 << 1) - 1)
+            atom["data"]["bit-rate-code"] = (value >> 5) & ((1 << 5) - 1)
+            atom["data"]["reserved"] = value & ((1 << 5) - 1)
+        elif typ == "tx3g":
+            atom["data"]["reserved"] = self.buf.rh(6)
+            atom["data"]["data-reference-index"] = self.buf.ru16()
+            atom["data"]["display-flags"] = self.buf.rh(4)
+            atom["data"]["horizontal-justification"] = self.buf.ri8()
+            atom["data"]["vertical-justification"] = self.buf.ri8()
+            atom["data"]["background-color"] = self.buf.rh(4)
+            atom["data"]["font-id"] = self.buf.ru16()
+            atom["data"]["font-face"] = self.buf.ru8()
+            atom["data"]["font-size"] = self.buf.ru8()
+            atom["data"]["font-color"] = self.buf.rh(4)
+            atom["data"]["default-text-box-top"] = self.buf.ru16()
+            atom["data"]["default-text-box-left"] = self.buf.ru16()
+            atom["data"]["default-text-box-bottom"] = self.buf.ru16()
+            atom["data"]["default-text-box-right"] = self.buf.ru16()
+            atom["data"]["start-char"] = self.buf.ru16()
+            atom["data"]["end-char"] = self.buf.ru16()
+            self.read_more(atom)
+        elif typ == "ftab":
+            font_count = self.buf.ru16()
+            atom["data"]["font-count"] = font_count
+
+            atom["data"]["fonts"] = []
+            for i in range(0, font_count):
+                font = {}
+                font["id"] = self.buf.ru16()
+                font["name"] = self.buf.rs(self.buf.ru8())
+
+                atom["data"]["fonts"].append(font)
+        elif typ == "chap":
+            atom["data"]["track-id"] = self.buf.ru32()
+        elif typ == "text":
+            atom["data"]["reserved"] = self.buf.rh(6)
+            atom["data"]["data-reference-index"] = self.buf.ru16()
+            atom["data"]["display-flags"] = self.buf.rh(4)
+            atom["data"]["horizontal-justification"] = self.buf.ri8()
+            atom["data"]["vertical-justification"] = self.buf.ri8()
+            atom["data"]["background-color"] = self.buf.rh(4)
+            atom["data"]["font-id"] = self.buf.ru16()
+            atom["data"]["font-face"] = self.buf.ru8()
+            atom["data"]["font-size"] = self.buf.ru8()
+            atom["data"]["font-color"] = self.buf.rh(4)
+            atom["data"]["default-text-box-top"] = self.buf.ru16()
+            atom["data"]["default-text-box-left"] = self.buf.ru16()
+            atom["data"]["default-text-box-bottom"] = self.buf.ru16()
+            atom["data"]["default-text-box-right"] = self.buf.ru16()
+            if self.buf.unit > 4:
+                atom["data"]["start-char"] = self.buf.ru16()
+                atom["data"]["end-char"] = self.buf.ru16()
+            self.read_more(atom)
+        elif typ == "chpl":
+            chapter_count = self.buf.ru8()
+            atom["data"]["chapter-count"] = chapter_count
+
+            atom["data"]["chapters"] = []
+            for i in range(0, chapter_count):
+                chapter = {}
+                chapter["timestamp"] = self.buf.ru64()
+                chapter["title"] = self.buf.rs(self.buf.ru8())
+
+                atom["data"]["chapters"].append(chapter)
+        elif typ == "nmhd":
+            self.read_version(atom)
         elif typ[0] == "©" or typ in ("iods", "SDLN", "smrd"):
             atom["data"]["payload"] = self.buf.readunit().decode("latin-1")
         elif typ in ("hint", "cdsc", "font", "hind", "vdep", "vplx", "subt",
@@ -1038,7 +1120,11 @@ class IsoModule(module.RuminantModule):
         return length
 
     def parse_sei(self, seis):
-        while self.buf.unit > 0:
+        count = 1000  # prevent OOM
+
+        while self.buf.unit > 0 and count > 0:
+            count -= 1
+
             t = 0
             while True:
                 b = self.buf.ru8()
@@ -1053,6 +1139,10 @@ class IsoModule(module.RuminantModule):
                 if b != 0xff:
                     break
 
+            if l >= 65536:
+                self.buf.skip(l)
+                continue
+
             data = self.buf.read(l)
             sei = {
                 "type": t,
@@ -1064,10 +1154,7 @@ class IsoModule(module.RuminantModule):
                     "uuid": data[:16].hex(),
                     "libx264-banner": data[16:-1].decode("utf-8"),
                 }
-            else:
-                sei["data"] = data.decode("latin-1")
-
-            seis.append(sei)
+                seis.append(sei)
 
     def parse_mdat_avc1(self, atoms):
         mdat = None
