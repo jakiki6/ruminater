@@ -99,13 +99,8 @@ class RIFFModule(module.RuminantModule):
         chunk = {}
 
         typ = self.buf.rs(4)
-        if typ == "WEBP":  # why google
-            typ = self.buf.rs(4)
-
         chunk["type"] = typ
-
         chunk["offset"] = self.buf.tell() - 4
-
         length = self.buf.ru32l()
         chunk["length"] = length
 
@@ -173,10 +168,24 @@ class RIFFModule(module.RuminantModule):
                 chunk["data"]["reserved2"] = tag & 0x1ffffff
                 chunk["data"]["width"] = self.buf.ru24l() + 1
                 chunk["data"]["height"] = self.buf.ru24l() + 1
-            case "RIFF" | "LIST":
+            case "fmt ":
+                chunk["data"]["format"] = self.buf.ru16l()
+                chunk["data"]["channel-count"] = self.buf.ru16l()
+                chunk["data"]["sample-rate"] = self.buf.ru32l()
+                chunk["data"]["byte-rate"] = self.buf.ru32l()
+                chunk["data"]["block-align"] = self.buf.ru16l()
+                chunk["data"]["bits-per-sample"] = self.buf.ru16l()
+            case "RIFF":
+                chunk["data"]["filetype"] = self.buf.rs(4)
                 chunk["data"]["chunks"] = []
                 while self.buf.unit:
                     chunk["data"]["chunks"].append(self.read_chunk())
+            case "LIST":
+                chunk["data"]["chunks"] = []
+                while self.buf.unit:
+                    chunk["data"]["chunks"].append(self.read_chunk())
+            case "data":
+                pass
             case _:
                 chunk["data"]["unknown"] = True
 

@@ -1,7 +1,7 @@
 import uuid
 import struct
 import datetime
-from .. import module, utils
+from .. import module, utils, buf
 from . import chew
 
 
@@ -544,7 +544,7 @@ class IsoModule(module.RuminantModule):
         elif typ == "titl":
             self.read_version(atom)
             atom["data"]["reserved1"] = self.buf.rh(2)
-            atom["data"]["title"] = self.buf.readunit()[:-1].decode("utf-8")
+            atom["data"]["title"] = self.buf.readunit()[:-1].decode("latin-1")
         elif typ == "cslg":
             atom["data"]["compositionToDTSShift"] = self.buf.ru32()
             atom["data"]["leastDecodeToDisplayDelta"] = self.buf.ru32()
@@ -1456,3 +1456,156 @@ class MatroskaModule(module.RuminantModule):
         self.buf.popunit()
 
         return tag
+
+
+@module.register
+class OggModule(module.RuminantModule):
+
+    def identify(buf):
+        return buf.peek(4) == b"OggS"
+
+    def chew(self):
+        meta = {}
+        meta["type"] = "ogg"
+
+        meta["packets"] = []
+
+        slacks = {}
+        streams = []
+        while len(streams) or self.buf.peek(4) == b"OggS":
+            assert self.buf.read(4) == b"OggS", "broken Ogg page"
+            assert self.buf.ru8() == 0, "broken Ogg page"
+
+            flags = self.buf.ru8()
+            self.buf.skip(8)
+            stream_id = self.buf.ru32l()
+            self.buf.skip(8)
+
+            if stream_id not in streams:
+                streams.append(stream_id)
+
+            if flags & 0x04 and stream_id in streams:
+                streams.remove(stream_id)
+
+            segment_count = self.buf.ru8()
+
+            for length in [self.buf.ru8() for i in range(0, segment_count)]:
+                if stream_id not in slacks:
+                    slacks[stream_id] = b""
+
+                slacks[stream_id] += self.buf.read(length)
+
+                if length != 255:
+                    self.process_packet(buf.Buf(slacks[stream_id]), stream_id,
+                                        meta)
+                    slacks[stream_id] = b""
+
+        self.buf.skip(self.buf.available())
+        return meta
+
+    def process_packet(self, buf, stream_id, meta):
+        packet = {}
+        packet["stream-id"] = stream_id
+        packet["codec"] = None
+        packet["type"] = None
+        packet["data"] = {}
+
+        if buf.peek(7) == b"\x01vorbis":
+            buf.skip(7)
+            packet["codec"] = "vorbis"
+            packet["type"] = "id"
+
+            packet["data"]["version"] = buf.ru32l()
+            packet["data"]["channel-count"] = buf.ru8()
+            packet["data"]["sample-rate"] = buf.ru32l()
+            packet["data"]["bitrate-maximum"] = buf.ru32l()
+            packet["data"]["bitrate-nominal"] = buf.ru32l()
+            packet["data"]["bitrate-minimum"] = buf.ru32l()
+            temp = buf.ru8()
+            packet["data"]["blocksize-small"] = 2**(temp & 0x03)
+            packet["data"]["blocksize-large"] = 2**(temp >> 4)
+            packet["data"]["framing-flag"] = buf.ru8()
+        elif buf.peek(7) == b"\x03vorbis":
+            buf.skip(7)
+            packet["codec"] = "vorbis"
+            packet["type"] = "comment"
+
+            packet["data"]["vendor-string"] = buf.rs(buf.ru32l())
+
+            packet["data"]["user-strings"] = []
+            for i in range(0, buf.ru32l()):
+                packet["data"]["user-strings"].append(buf.rs(buf.ru32l()))
+
+            packet["data"]["framing-flag"] = buf.ru8()
+        elif buf.peek(7) == b"\x05vorbis":
+            buf.skip(7)
+            packet["codec"] = "vorbis"
+            packet["type"] = "setup"
+        elif buf.peek(8) == b"OpusHead":
+            buf.skip(8)
+            packet["codec"] = "opus"
+            packet["type"] = "head"
+
+            packet["data"]["version"] = buf.ru8()
+            channel_count = buf.ru8()
+            packet["data"]["channel-count"] = channel_count
+            packet["data"]["pre-skip"] = buf.ru16l()
+            packet["data"]["input-sample-rate"] = buf.ru32l()
+            packet["data"]["output-gain"] = buf.ri16() / 256
+            mapping = buf.ru8()
+            packet["data"]["channel-mapping"] = mapping
+
+            if mapping > 0:
+                packet["data"]["stream-count"] = buf.ru8()
+                packet["data"]["coupled-count"] = buf.ru8()
+                packet["data"]["channel-mapping-table"] = [
+                    buf.ru8() for i in range(0, channel_count)
+                ]
+        elif buf.peek(8) == b"OpusTags":
+            buf.skip(8)
+            packet["codec"] = "opus"
+            packet["type"] = "tags"
+
+            packet["data"]["vendor-string"] = buf.rs(buf.ru32l())
+
+            packet["data"]["user-strings"] = []
+            for i in range(0, buf.ru32l()):
+                packet["data"]["user-strings"].append(buf.rs(buf.ru32l()))
+        elif buf.peek(7) == b"\x80theora":
+            buf.skip(7)
+            packet["codec"] = "theora"
+            packet["type"] = "id"
+
+            packet["data"]["version"] = f"{buf.ru8()}.{buf.ru8()}.{buf.ru8()}"
+            packet["data"]["frame-width"] = buf.ru16()
+            packet["data"]["frame-height"] = buf.ru16()
+            packet["data"]["pic-width"] = buf.ru24()
+            packet["data"]["pic-height"] = buf.ru24()
+            packet["data"]["pic-x"] = buf.ru8()
+            packet["data"]["pic-y"] = buf.ru8()
+            packet["data"]["framerate"] = buf.ru32() / buf.ru32()
+            packet["data"]["aspect"] = buf.ru24l() / buf.ru24l()
+            packet["data"]["colorspace"] = buf.ru8()
+            packet["data"]["pixel-fmt-flags"] = buf.ru8()
+            packet["data"]["target-bitrate"] = buf.ru24l()
+            packet["data"]["quality"] = buf.ru8()
+            packet["data"]["keyframe-granule-shift"] = buf.ru8()
+            packet["data"]["pixel-fmt-flags2"] = buf.ru8()
+        elif buf.peek(7) == b"\x81theora":
+            buf.skip(7)
+            packet["codec"] = "theora"
+            packet["type"] = "comment"
+
+            packet["data"]["vendor-string"] = buf.rs(buf.ru32l())
+
+            packet["data"]["user-strings"] = []
+            for i in range(0, buf.ru32l()):
+                packet["data"]["user-strings"].append(buf.rs(buf.ru32l()))
+        elif buf.peek(7) == b"\x82theora":
+            buf.skip(7)
+            packet["codec"] = "theora"
+            packet["type"] = "setup"
+        else:
+            return
+
+        meta["packets"].append(packet)
