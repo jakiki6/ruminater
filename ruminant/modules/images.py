@@ -587,14 +587,18 @@ class ICCProfileModule(module.RuminantModule):
         return tag
 
     def identify(buf):
-        return buf.peek(12) == b"ICC_PROFILE\x00"
+        return buf.peek(12) == b"ICC_PROFILE\x00" or buf.peek(8)[4:] in (b"Lino", b"appl")
 
     def chew(self):
         meta = {}
         meta["type"] = "icc-profile"
         meta["data"] = {}
 
-        self.buf.skip(14)
+        global_offset = 0
+        if self.buf.peek(12) == b"ICC_PROFILE\x00":
+            self.buf.skip(14)
+            global_offset = 14
+
         length = self.buf.ru32()
         meta["data"]["length"] = length
         self.buf.setunit(length - 4)
@@ -645,7 +649,7 @@ class ICCProfileModule(module.RuminantModule):
             tag["offset"] = self.buf.ru32()
             tag["length"] = self.buf.ru32()
 
-            tag |= self.read_tag(tag["offset"] + 14, tag["length"])
+            tag |= self.read_tag(tag["offset"] + global_offset, tag["length"])
 
             meta["data"]["tags"].append(tag)
 
