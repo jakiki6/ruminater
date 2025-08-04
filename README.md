@@ -48,6 +48,7 @@ Ruminant is still in early alpha but it can already process the following file t
   * Opus metadata
   * Theora metadata
   * Vorbis metadata
+* FLAC files
 
 # How do I install it?
 Run `pip3 install ruminant`.

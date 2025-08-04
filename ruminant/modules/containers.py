@@ -52,7 +52,8 @@ class ZipModule(module.RuminantModule):
             file["meta"]["external-attributes"] = self.buf.rh(4)
             file["offset"] = self.buf.ru32l()
             file["filename"] = self.buf.rs(filename_length)
-            file["meta"]["extra-field"] = self.buf.rs(extra_field_length)
+            file["meta"]["extra-field"] = self.buf.rs(extra_field_length,
+                                                      "latin-1")
             file["meta"]["comment"] = self.buf.rs(comment_length)
 
             with self.buf:

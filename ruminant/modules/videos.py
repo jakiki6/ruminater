@@ -1503,7 +1503,6 @@ class OggModule(module.RuminantModule):
                                         meta)
                     slacks[stream_id] = b""
 
-        self.buf.skip(self.buf.available())
         return meta
 
     def process_packet(self, buf, stream_id, meta):
