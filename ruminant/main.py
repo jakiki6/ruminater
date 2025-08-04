@@ -5,11 +5,12 @@ import sys
 import json
 import tempfile
 import os
+import re
 
 
 def process(file, walk):
     if not walk:
-        print(json.dumps(modules.chew(file), indent=2, ensure_ascii=False))
+        return json.dumps(modules.chew(file), indent=2, ensure_ascii=False)
         return
 
     buf = Buf(file)
@@ -63,14 +64,13 @@ def process(file, walk):
                         file.write(blob)
                         length -= len(blob)
 
-    print(
-        json.dumps({
-            "type": "walk",
-            "length": buf.size(),
-            "entries": data
-        },
-                   indent=2,
-                   ensure_ascii=False))
+    return json.dumps({
+        "type": "walk",
+        "length": buf.size(),
+        "entries": data
+    },
+                      indent=2,
+                      ensure_ascii=False)
 
 
 def main():
@@ -110,6 +110,11 @@ def main():
                         action="store_true",
                         help="Extract all blobs to blobs/{id}.bin")
 
+    parser.add_argument("--filename-regex",
+                        default=".*",
+                        nargs="?",
+                        help="Filename regex for directory mode")
+
     args = parser.parse_args()
 
     if args.file == "-":
@@ -146,7 +151,39 @@ def main():
 
         file.seek(0)
         with file:
-            process(file, args.walk)
+            print(process(file, args.walk))
     else:
-        with open(args.file, "rb") as file:
-            process(file, args.walk)
+        if not os.path.isfile(args.file):
+            print("{\n  \"type\": \"directory\",\n  \"files\": [")
+
+            filename_regex = re.compile(args.filename_regex)
+
+            first = True
+            for root, _, files in os.walk(args.file):
+                for file in files:
+                    file = os.path.join(root, file)
+
+                    if filename_regex.match(file) is None:
+                        continue
+
+                    if first:
+                        first = False
+                    else:
+                        print(",")
+
+                    print(
+                        f"    {{\n      \"path\": {json.dumps(file)},\n      \"data\": {{"  # noqa: E501
+                    )
+
+                    with open(file, "rb") as fd:
+                        print("\n".join([
+                            "      " + x
+                            for x in process(fd, args.walk).split("\n")[1:-1]
+                        ]))
+
+                    print("      }\n    }", end="")
+
+            print("\n  ]\n}")
+        else:
+            with open(args.file, "rb") as file:
+                print(process(file, args.walk))

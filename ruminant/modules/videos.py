@@ -400,7 +400,10 @@ class IsoModule(module.RuminantModule):
                 case _:
                     atom["data"]["payload"] = self.buf.readunit().hex()
         elif typ == "free":
-            atom["data"]["non-zero"] = sum(self.buf.readunit()) > 0
+            atom["data"]["non-zero"] = sum(self.buf.peek(self.buf.unit)) > 0
+            if atom["data"]["non-zero"]:
+                with self.buf.subunit():
+                    atom["data"]["data"] = chew(self.buf)
         elif typ == "co64":
             self.read_version(atom)
             entry_count = self.buf.ru32()

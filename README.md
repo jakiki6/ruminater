@@ -71,8 +71,3 @@ You can also specify `--extract-all` in order to extract all blobs to the "blobs
 
 # Ruminant can't parse xyz
 Feel free to send me a sample so I can add a parser for it :)
-
-# TODO list
-* more file formats
-  * MP3
-* ZIP family detection (e.g. DOCX is also a ZIP file)
