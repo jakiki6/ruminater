@@ -76,13 +76,13 @@ class Buf(object):
     def read(self, count=None):
         if count is None:
             self.unit = None
-            return self._file.read()
+            return self._file.read(self.available())
         else:
             if self.unit is not None:
                 self.unit -= count
                 self._checkunit()
 
-            return self._file.read(count)
+            return self._file.read(min(count, self.available()))
 
     def pushunit(self):
         self._stack.append((self.unit, self._target))

@@ -162,6 +162,11 @@ class PdfModule(module.RuminantModule):
                 line = self.buf.rl().decode("latin-1")
 
                 if "trailer" in line:
+                    while self.buf.peek(7) != b"trailer":
+                        self.buf.seek(-1, 1)
+
+                    self.buf.skip(7)
+
                     d = self.read_value(self.buf)
 
                     if "XRefStm" in d:
@@ -383,11 +388,18 @@ class PdfModule(module.RuminantModule):
                 if level == 0:
                     d += buf.read(1)
                     break
+            elif buf.peek(1) == b"[":
+                level += 1
+            elif buf.peek(1) == b"]":
+                level -= 1
+
+                if level == 0:
+                    d += buf.read(1)
+                    break
 
             d += buf.read(1)
 
-        value = self.parse_value(list(self.tokenize(d.decode("latin-1"))))
-        return value
+        return self.parse_value(list(self.tokenize(d.decode("latin-1"))))
 
     @classmethod
     def tokenize(cls, s):
