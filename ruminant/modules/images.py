@@ -587,7 +587,8 @@ class ICCProfileModule(module.RuminantModule):
         return tag
 
     def identify(buf):
-        return buf.peek(12) == b"ICC_PROFILE\x00" or buf.peek(8)[4:] in (b"Lino", b"appl")
+        return buf.peek(12) == b"ICC_PROFILE\x00" or buf.peek(8)[4:] in (
+            b"Lino", b"appl")
 
     def chew(self):
         meta = {}
