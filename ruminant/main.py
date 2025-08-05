@@ -166,22 +166,25 @@ def main():
                     if filename_regex.match(file) is None:
                         continue
 
-                    if first:
-                        first = False
-                    else:
-                        print(",")
+                    try:
+                        with open(file, "rb") as fd:
+                            if first:
+                                first = False
+                            else:
+                                print(",")
 
-                    print(
-                        f"    {{\n      \"path\": {json.dumps(file)},\n      \"data\": {{"  # noqa: E501
-                    )
+                            print(
+                                f"    {{\n      \"path\": {json.dumps(file)},\n      \"data\": {{"  # noqa: E501
+                            )
 
-                    with open(file, "rb") as fd:
-                        print("\n".join([
-                            "      " + x
-                            for x in process(fd, args.walk).split("\n")[1:-1]
-                        ]))
+                            print("\n".join([
+                                "      " + x for x in process(
+                                    fd, args.walk).split("\n")[1:-1]
+                            ]))
 
-                    print("      }\n    }", end="")
+                            print("      }\n    }", end="")
+                    except Exception:
+                        pass
 
             print("\n  ]\n}")
         else:

@@ -1123,6 +1123,21 @@ class PNGModule(module.RuminantModule):
                             3: "Absolute Colorimetric",
                         }.get(render_intent, "Unknown"),
                     }
+                case "orNT":
+                    orientation = self.buf.ru8()
+                    chunk["data"]["orientation"] = {
+                        "raw": "orientation",
+                        "name": {
+                            1: "Top Left",
+                            2: "Top Right",
+                            3: "Bottom Right",
+                            4: "Bottom Left",
+                            5: "Left Top",
+                            6: "Right Top",
+                            7: "Right Bottom",
+                            8: "Left Bottom"
+                        }.get(orientation, "Unknown")
+                    }
                 case "IDAT" | "IEND" | "PLTE" | "tRNS" | "npOl" | "npTc":
                     pass
                 case _:
