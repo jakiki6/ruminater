@@ -2,7 +2,7 @@ from .. import module, utils
 
 
 @module.register
-class PdfSignatureModule(module.RuminantModule):
+class PdfTimestampSignatureModule(module.RuminantModule):
 
     def identify(buf):
         with buf:
@@ -11,7 +11,7 @@ class PdfSignatureModule(module.RuminantModule):
 
     def chew(self):
         meta = {}
-        meta["type"] = "pdf-signature"
+        meta["type"] = "pdf-timestamp-signature"
 
         self.buf.skip(27)
         meta["data"] = utils.read_der(self.buf)
