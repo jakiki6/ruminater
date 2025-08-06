@@ -121,7 +121,7 @@ class ReparsePoint(Exception):
 @module.register
 class PdfModule(module.RuminantModule):
     TOKEN_PATTERN = re.compile(
-        r"( \s | << | >> | \[ | \] | /[^\s<>/\[\]()]+ | \d+\s+\d+\s+R | \d+\.\d+ | \d+ | \( (?: [^\\\)] | \\ . )* \) | <[0-9A-Fa-f\s]*> | true | false | null )",  # noqa: E501
+        r"( << | >> | \[ | \] | /[^\s<>/\[\]()]+ | \d+\s+\d+\s+R | \d+\.\d+ | \d+ | \( (?: [^\\\)] | \\ . )* \) | <[0-9A-Fa-f\s]*> | true | false | null )",  # noqa: E501
         re.VERBOSE | re.DOTALL,
     )
     INDIRECT_OBJECT_PATTERN = re.compile(r"^(\d+) (\d+) R$")
@@ -418,10 +418,38 @@ class PdfModule(module.RuminantModule):
         return self.parse_value(tokens)
 
     @classmethod
+    def extract_balanced(cls, s):
+        group = ""
+        depth = 0
+        while len(s):
+            c, s = s[0], s[1:]
+            group += c
+
+            if c == "(":
+                depth += 1
+            elif c == ")":
+                depth -= 1
+
+                if depth <= 0:
+                    break
+
+        return group, s
+
+    @classmethod
     def tokenize(cls, s):
-        for match in cls.TOKEN_PATTERN.finditer(s):
-            if match.group(0) not in ("\r", "\n", " "):
-                yield match.group(0)
+        while len(s):
+            if s[0].isspace():
+                s = s[1:]
+            elif s[0] == "(":
+                group, s = cls.extract_balanced(s)
+                yield group
+            else:
+                match = cls.TOKEN_PATTERN.match(s)
+                if match:
+                    yield match.group()
+                    s = s[len(match.group()):]
+                else:
+                    s = s[1:]
 
     @classmethod
     def parse_dict(cls, tokens):
