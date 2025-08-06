@@ -110,7 +110,7 @@ def read_der(buf):
     tag = buf.ru8()
     constructed = bool((tag >> 5) & 0x01)
 
-    if tag & 0x07 == 0x07:
+    if tag & 0x0f == 0x0f:
         c = 0x80
         while c & 0x80:
             c = buf.ru8()

@@ -24,7 +24,7 @@ class PdfTimestampSignatureModule(module.RuminantModule):
 class DerModule(module.RuminantModule):
 
     def identify(buf):
-        return buf.peek(2) == b"\x30\x82"
+        return buf.pu16() & 0xfff0 == 0x3080
 
     def chew(self):
         meta = {}
