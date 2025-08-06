@@ -51,6 +51,7 @@ Ruminant is still in early alpha but it can already process the following file t
 * FLAC files
 * DER data
   * X509 certificates
+  * PEM files
 
 # How do I install it?
 Run `pip3 install ruminant`.
