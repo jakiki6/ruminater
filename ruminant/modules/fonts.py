@@ -903,9 +903,7 @@ class TrueTypeModule(module.RuminantModule):
                                 text_length = ((text_length + 1) >> 1) << 1
                                 entry["text"] = self.buf.rs(
                                     text_length, "utf-16be" if
-                                    (platform_id == 0 or platform_id == 3
-                                     and platform_specific_id in (1, 10)) else
-                                    "latin-1")
+                                    (platform_id in (0, 3)) else "latin-1")
 
                             table["data"]["entries"].append(entry)
                     case "post":
