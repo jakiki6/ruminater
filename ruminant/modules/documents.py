@@ -5,7 +5,6 @@ from ..buf import Buf
 import zipfile
 import xml.etree.ElementTree as ET
 import re
-import zlib
 import math
 
 
@@ -181,7 +180,7 @@ class PdfModule(module.RuminantModule):
 
                 m = self.XREF_PATTERN.match(line)
                 if m:
-                    if m.group(3) == "n":
+                    if m.group(3) == "n" and m.group(1) != "0000000000":
                         self.queue.append((int(m.group(1)), self.buf))
 
                     obj_id += 1
@@ -262,8 +261,16 @@ class PdfModule(module.RuminantModule):
         obj["offset"] = buf.tell()
 
         if obj_id is None:
-            line = buf.rl().decode("latin-1")
-            obj_id, obj_generation, _ = line.split(" ")
+            line = b""
+            while not line.endswith(b"obj"):
+                line += buf.read(1)
+
+            line = line.decode("utf-8")
+
+            while buf.peek(1) in (b" ", b"\r", b"\n"):
+                self.buf.skip(1)
+
+            obj_id, obj_generation, _ = line.split(" ")[:3]
         else:
             obj_generation = 0
 
@@ -283,8 +290,9 @@ class PdfModule(module.RuminantModule):
             if "Length" in obj["value"]:
                 length = self.resolve(obj["value"]["Length"])
 
-                if not buf.rl().endswith(b"stream"):
-                    buf.rl()
+                line = b""
+                while not line.endswith(b"stream"):
+                    line = buf.rl()
 
                 with buf.sub(length):
                     old_buf = buf
@@ -296,7 +304,14 @@ class PdfModule(module.RuminantModule):
                     for filt in filters:
                         match filt:
                             case "/FlateDecode":
-                                buf = Buf(zlib.decompress(buf.read()))
+                                content = buf.read()
+
+                                try:
+                                    content = utils.zlib_decompress(content)
+                                except Exception:
+                                    obj["decompression-error"] = True
+
+                                buf = Buf(content)
 
                     if "DecodeParms" in obj["value"]:
                         params = self.resolve(obj["value"]["DecodeParms"])
@@ -399,7 +414,8 @@ class PdfModule(module.RuminantModule):
 
             d += buf.read(1)
 
-        return self.parse_value(list(self.tokenize(d.decode("latin-1"))))
+        tokens = list(self.tokenize(d.decode("latin-1")))
+        return self.parse_value(tokens)
 
     @classmethod
     def tokenize(cls, s):
@@ -438,6 +454,9 @@ class PdfModule(module.RuminantModule):
 
     @classmethod
     def parse_value(cls, tokens):
+        if len(tokens) == 0:
+            return
+
         token = tokens.pop(0)
 
         if token == "<<":
@@ -455,7 +474,18 @@ class PdfModule(module.RuminantModule):
         elif token.startswith("("):
             token = token[1:-1]
             if len(token) >= 2 and token[0] == "\xfe" and token[1] == "\xff":
-                token = token.encode("latin-1").decode("utf-16")
+                if len(token) >= 3 and token[2] == "\\":
+                    # what the fuck apple
+                    temp = token.encode("latin-1")[2:]
+                    token = b""
+
+                    while len(temp) >= 5:
+                        token += temp[4:5]
+                        temp = temp[5:]
+
+                    token = token.decode("latin-1")
+                elif len(token) % 2 == 0:
+                    token = token.encode("latin-1").decode("utf-16")
 
             return token.replace("\\(", "(").replace("\\)", ")")
         elif token.startswith("<"):

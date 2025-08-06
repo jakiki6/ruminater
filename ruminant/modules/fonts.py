@@ -60,36 +60,62 @@ class TrueTypeModule(module.RuminantModule):
                         table["data"]["fs-first-char-index"] = self.buf.ru16()
                         table["data"]["fs-last-char-index"] = self.buf.ru16()
 
-                        if self.buf.unit > 0:
+                        if self.buf.unit >= 2:
                             table["data"]["s-typo-descender"] = self.buf.ri16()
-                        if self.buf.unit > 0:
+                        else:
+                            self.buf.skipunit()
+                        if self.buf.unit >= 2:
                             table["data"]["s-typo-line-gap"] = self.buf.ri16()
-                        if self.buf.unit > 0:
+                        else:
+                            self.buf.skipunit()
+                        if self.buf.unit >= 2:
                             table["data"]["us-win-ascent"] = self.buf.ru16()
-                        if self.buf.unit > 0:
+                        else:
+                            self.buf.skipunit()
+                        if self.buf.unit >= 2:
                             table["data"]["us-win-descent"] = self.buf.ru16()
-                        if self.buf.unit > 0:
+                        else:
+                            self.buf.skipunit()
+                        if self.buf.unit >= 4:
                             table["data"][
                                 "ul-code-page-range1"] = self.buf.ru32()
-                        if self.buf.unit > 0:
+                        else:
+                            self.buf.skipunit()
+                        if self.buf.unit >= 4:
                             table["data"][
                                 "ul-code-page-range2"] = self.buf.ru32()
-                        if self.buf.unit > 0:
+                        else:
+                            self.buf.skipunit()
+                        if self.buf.unit >= 2:
                             table["data"]["sx-height"] = self.buf.ri16()
-                        if self.buf.unit > 0:
+                        else:
+                            self.buf.skipunit()
+                        if self.buf.unit >= 2:
                             table["data"]["s-cap-height"] = self.buf.ri16()
-                        if self.buf.unit > 0:
+                        else:
+                            self.buf.skipunit()
+                        if self.buf.unit >= 2:
                             table["data"]["us-default-char"] = self.buf.ru16()
-                        if self.buf.unit > 0:
+                        else:
+                            self.buf.skipunit()
+                        if self.buf.unit >= 2:
                             table["data"]["us-break-char"] = self.buf.ru16()
-                        if self.buf.unit > 0:
+                        else:
+                            self.buf.skipunit()
+                        if self.buf.unit >= 2:
                             table["data"]["us-max-context"] = self.buf.ru16()
-                        if self.buf.unit > 0:
+                        else:
+                            self.buf.skipunit()
+                        if self.buf.unit >= 2:
                             table["data"][
                                 "us-lower-point-size"] = self.buf.ru16()
-                        if self.buf.unit > 0:
+                        else:
+                            self.buf.skipunit()
+                        if self.buf.unit >= 2:
                             table["data"][
                                 "us-upper-point-size"] = self.buf.ru16()
+                        else:
+                            self.buf.skipunit()
                     case "cvt ":
                         table["data"]["entry-count"] = self.buf.unit // 4
                     case "fpgm" | "prep":

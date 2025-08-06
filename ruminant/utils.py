@@ -238,3 +238,23 @@ def lookup_oid(oid):
         data["name"] = tree[-1]
 
     return data
+
+
+def zlib_decompress(content):
+    try:
+        return zlib.decompress(content)
+    except Exception:
+        try:
+            return zlib.decompressobj().decompress(content)
+        except Exception:
+            decomp = zlib.decompressobj(zlib.MAX_WBITS | 32)
+
+            data = b""
+            for c in content:
+                # WHAT THE FUCK ADOBE
+                try:
+                    data += decomp.decompress(bytes([c]))
+                except Exception:
+                    pass
+
+            return data
