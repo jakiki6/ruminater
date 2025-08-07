@@ -265,7 +265,7 @@ class PdfModule(module.RuminantModule):
             while not line.endswith(b"obj"):
                 line += buf.read(1)
 
-            line = line.decode("utf-8")
+            line = line.decode("latin-1")
 
             while buf.peek(1) in (b" ", b"\r", b"\n"):
                 self.buf.skip(1)
@@ -320,6 +320,20 @@ class PdfModule(module.RuminantModule):
                             match params["Predictor"]:
                                 case 0:
                                     pass
+                                case 2:
+                                    row_length = math.ceil(
+                                                params["Columns"] *
+                                                params.get("Colors", 1) *
+                                                params.get(
+                                                    "BitsPerComponent", 8) / 8)
+                                    bpp = row_length // params["Columns"]
+
+                                    data = bytearray(buf.read())
+                                    for i in range(len(data)):
+                                        if i % row_length >= bpp:
+                                            data[i] = (data[i] + data[i - bpp]) % 256
+
+                                    buf = Buf(data)
                                 case 10 | 11 | 12 | 13 | 14 | 15:
                                     buf = Buf(
                                         png_decode(
@@ -425,7 +439,10 @@ class PdfModule(module.RuminantModule):
             c, s = s[0], s[1:]
             group += c
 
-            if c == "(":
+            if c == "\\":
+                group += s[0]
+                s = s[1:]
+            elif c == "(":
                 depth += 1
             elif c == ")":
                 depth -= 1
