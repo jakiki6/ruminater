@@ -176,6 +176,9 @@ class RIFFModule(module.RuminantModule):
                 chunk["data"]["byte-rate"] = self.buf.ru32l()
                 chunk["data"]["block-align"] = self.buf.ru16l()
                 chunk["data"]["bits-per-sample"] = self.buf.ru16l()
+            case "ICCP":
+                with self.buf.subunit():
+                    chunk["data"]["color-profile"] = chew(self.buf)
             case "RIFF":
                 chunk["data"]["filetype"] = self.buf.rs(4)
                 chunk["data"]["chunks"] = []

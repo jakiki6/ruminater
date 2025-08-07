@@ -372,17 +372,6 @@ class IsoModule(module.RuminantModule):
             self.read_version(atom)
             atom["data"]["balance"] = self.buf.rfp16()
             atom["data"]["reserved"] = self.buf.ru16()
-        elif typ == "mp4a":
-            atom["data"]["reserved1"] = self.buf.rh(6)
-            atom["data"]["data_reference_index"] = self.buf.ru16()
-            atom["data"]["reserved2"] = self.buf.rh(8)
-            atom["data"]["channel_count"] = self.buf.ru16()
-            atom["data"]["samplesize"] = self.buf.ru16()
-            atom["data"]["pre_defined"] = self.buf.rh(2)
-            atom["data"]["reserved3"] = self.buf.rh(2)
-            atom["data"]["samplerate"] = self.buf.rfp32()
-
-            self.read_more(atom)
         elif typ == "esds":
             self.read_version(atom)
             atom["data"]["or"] = self.buf.readunit().hex()
@@ -987,16 +976,6 @@ class IsoModule(module.RuminantModule):
             atom["data"]["opcolor"] = [self.buf.ru16() for _ in range(0, 3)]
             atom["data"]["balance"] = self.buf.ru16()
             atom["data"]["reserved"] = self.buf.rh(2)
-        elif typ == "ac-3":
-            atom["data"]["reserved1"] = self.buf.rh(6)
-            atom["data"]["data-reference-index"] = self.buf.ru16()
-            atom["data"]["reserved2"] = self.buf.rh(8)
-            atom["data"]["channel-count"] = self.buf.ru16()
-            atom["data"]["sample-size"] = self.buf.ru16()
-            atom["data"]["reserved3"] = self.buf.rh(4)
-            atom["data"]["sampling-rate"] = self.buf.ru16()
-            atom["data"]["reserved4"] = self.buf.rh(2)
-            self.read_more(atom)
         elif typ == "dac3":
             value = self.buf.ru24()
             atom["data"]["fscod"] = value >> 22
@@ -1067,8 +1046,38 @@ class IsoModule(module.RuminantModule):
                 chapter["title"] = self.buf.rs(self.buf.ru8())
 
                 atom["data"]["chapters"].append(chapter)
+        elif typ == "dfLa":
+            self.read_version(atom)
+            atom["data"]["content"] = chew(b"fLaC" + self.buf.readunit())
         elif typ == "nmhd":
             self.read_version(atom)
+        elif typ in ("samr", "sawb", "mp4a", "drms", "alac", "owma", "ac-3",
+                     "ec-3", "mlpa", "dtsl", "dtsh", "dtse", "enca", "fLaC"):
+            # see https://github.com/sannies/mp4parser for reference
+            atom["data"]["reserved1"] = self.buf.rh(6)
+            atom["data"]["data-reference-index"] = self.buf.ru16()
+            atom["data"]["sound-version"] = self.buf.ru16()
+            atom["data"]["reserved2"] = self.buf.rh(6)
+            atom["data"]["channel-count"] = self.buf.ru16()
+            atom["data"]["sample-size"] = self.buf.ru16()
+            atom["data"]["compression-id"] = self.buf.ru16()
+            atom["data"]["packet-size"] = self.buf.ru16()
+
+            atom["data"]["sample-rate"] = self.buf.ru32()
+            if typ != "mlpa":
+                atom["data"]["sample-rate"] >>= 16
+
+            if atom["data"]["sound-version"] >= 1:
+                atom["data"]["samples-per-packet"] = self.buf.ru32()
+                atom["data"]["bytes-per-packet"] = self.buf.ru32()
+                atom["data"]["bytes-per-frame"] = self.buf.ru32()
+                atom["data"]["bytes-per-sample"] = self.buf.ru32()
+
+            if atom["data"]["sound-version"] >= 2:
+                atom["data"]["sound-v2-data"] = self.buf.rh(20)
+
+            if typ != "owma":
+                self.read_more(atom)
         elif typ[0] == "©" or typ in ("iods", "SDLN", "smrd"):
             if typ[:2] == "©T" and self.buf.pu16() == self.buf.unit - 4:
                 length = self.buf.ru16()
@@ -1128,7 +1137,7 @@ class IsoModule(module.RuminantModule):
         return length
 
     def parse_sei(self, seis):
-        count = 1000  # prevent OOM
+        count = 1000  # prevent OOM from that stupid torrent
 
         while self.buf.unit > 0 and count > 0:
             count -= 1

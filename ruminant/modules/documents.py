@@ -322,16 +322,16 @@ class PdfModule(module.RuminantModule):
                                     pass
                                 case 2:
                                     row_length = math.ceil(
-                                                params["Columns"] *
-                                                params.get("Colors", 1) *
-                                                params.get(
-                                                    "BitsPerComponent", 8) / 8)
+                                        params["Columns"] *
+                                        params.get("Colors", 1) *
+                                        params.get("BitsPerComponent", 8) / 8)
                                     bpp = row_length // params["Columns"]
 
                                     data = bytearray(buf.read())
                                     for i in range(len(data)):
                                         if i % row_length >= bpp:
-                                            data[i] = (data[i] + data[i - bpp]) % 256
+                                            data[i] = (data[i] +
+                                                       data[i - bpp]) % 256
 
                                     buf = Buf(data)
                                 case 10 | 11 | 12 | 13 | 14 | 15:
