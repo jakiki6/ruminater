@@ -1,7 +1,8 @@
 from . import chew
-from .. import module, utils
+from .. import module, utils, constants
 
 import tempfile
+import re
 
 
 @module.register
@@ -92,6 +93,7 @@ class RIFFModule(module.RuminantModule):
         meta = {}
         meta["type"] = "riff"
 
+        self.strh_type = None
         meta["data"] = self.read_chunk()
 
         return meta
@@ -179,16 +181,148 @@ class RIFFModule(module.RuminantModule):
             case "ICCP":
                 with self.buf.subunit():
                     chunk["data"]["color-profile"] = chew(self.buf)
-            case "RIFF":
-                chunk["data"]["filetype"] = self.buf.rs(4)
+            case "avih":
+                chunk["data"]["microseconds-per-frame"] = self.buf.ru32l()
+                chunk["data"]["max-bytes-per-second"] = self.buf.ru32l()
+                chunk["data"]["padding-granularity"] = self.buf.ru32l()
+                chunk["data"]["flags"] = self.buf.rh(4)
+                chunk["data"]["frame-count"] = self.buf.ru32l()
+                chunk["data"]["initial-frames"] = self.buf.ru32l()
+                chunk["data"]["stream-count"] = self.buf.ru32l()
+                chunk["data"]["buffer-size"] = self.buf.ru32l()
+                chunk["data"]["width"] = self.buf.ru32l()
+                chunk["data"]["height"] = self.buf.ru32l()
+                chunk["data"]["reserved"] = self.buf.rh(16)
+
+                chunk["data"]["derived"] = {}
+                chunk["data"]["derived"][
+                    "fps"] = 1000000 / chunk["data"]["microseconds-per-frame"]
+                chunk["data"]["derived"]["duration-in-seconds"] = chunk[
+                    "data"]["frame-count"] * chunk["data"][
+                        "microseconds-per-frame"] / 1000000
+            case "strh":
+                self.strh_type = self.buf.rs(4)
+                chunk["data"]["type"] = self.strh_type
+                chunk["data"]["handler"] = self.buf.rs(4)
+                chunk["data"]["flags"] = self.buf.rh(4)
+                chunk["data"]["priority"] = self.buf.ru16l()
+
+                language = self.buf.ru16l()
+                chunk["data"]["language"] = {
+                    "raw": language,
+                    "name": constants.MICROSOFT_LCIDS.get(language, "Unknown")
+                }
+
+                chunk["data"]["initial-frames"] = self.buf.ru32l()
+                chunk["data"]["scale"] = self.buf.ru32l()
+                chunk["data"]["rate"] = self.buf.ru32l()
+                chunk["data"]["start"] = self.buf.ru32l()
+                chunk["data"]["length"] = self.buf.ru32l()
+                chunk["data"]["buffer-size"] = self.buf.ru32l()
+                chunk["data"]["quality"] = self.buf.ri32l()
+                chunk["data"]["sample-size"] = self.buf.ru32l()
+                chunk["data"]["frame-left"] = self.buf.ru16l()
+                chunk["data"]["frame-top"] = self.buf.ru16l()
+                chunk["data"]["frame-right"] = self.buf.ru16l()
+                chunk["data"]["frame-bottom"] = self.buf.ru16l()
+            case "strf":
+                match self.strh_type:
+                    case "vids":
+                        chunk["data"]["header-size"] = self.buf.ru32l()
+                        chunk["data"]["width"] = self.buf.ru32l()
+                        chunk["data"]["height"] = self.buf.ru32l()
+                        chunk["data"]["plane-count"] = self.buf.ru16l()
+                        chunk["data"]["bits-per-pixel"] = self.buf.ru16l()
+                        chunk["data"]["compression-method"] = self.buf.rs(4)
+                        chunk["data"]["image-size"] = self.buf.ru32l()
+                        chunk["data"][
+                            "horizontal-resolution"] = self.buf.ru32l()
+                        chunk["data"]["vertical-resolution"] = self.buf.ru32l()
+                        chunk["data"]["used-color-count"] = self.buf.ru32l()
+                        chunk["data"][
+                            "important-color-count"] = self.buf.ru32l()
+                    case "auds":
+                        format_tag = self.buf.ru16l()
+                        chunk["data"]["format"] = {
+                            "raw": format_tag,
+                            "name": {
+                                0x0001: "PCM",
+                                0x0050: "MPEG",
+                                0x2000: "AC-3",
+                                0x00ff: "AAC",
+                                0x0161: "WMA",
+                                0x2001: "DTS",
+                                0xf1ac: "FLAC"
+                            }.get(format_tag, "Unknown")
+                        }
+
+                        chunk["data"]["channel-count"] = self.buf.ru16l()
+                        chunk["data"]["sample-rate"] = self.buf.ru32l()
+                        chunk["data"][
+                            "average-bytes-per-second"] = self.buf.ru32l()
+                        chunk["data"]["block-alignment"] = self.buf.ru16l()
+                        chunk["data"]["bits-per-sample"] = self.buf.ru16l()
+
+                        codec_data_size = self.buf.ru16l()
+                        chunk["data"]["codec-data-size"] = codec_data_size
+                    case _:
+                        chunk["data"]["unknown-type"] = True
+
+                self.strh_type = None
+            case "vprp":
+                chunk["data"]["format"] = self.buf.rs(4)
+
+                standard = self.buf.ru32l()
+                chunk["data"]["standard"] = {
+                    "raw": standard,
+                    "name": {
+                        0: "NTSC",
+                        1: "PAL",
+                        2: "SECAM"
+                    }.get(standard, "Unknown")
+                }
+
+                chunk["data"]["vertical-refresh-rate"] = self.buf.ru32l()
+                chunk["data"]["horizontal-total"] = self.buf.ru32l()
+                chunk["data"]["vertical-total"] = self.buf.ru32l()
+
+                y, x = self.buf.ru16l(), self.buf.ru16l()
+                chunk["data"]["aspect-ratio"] = f"{x}:{y}"
+
+                chunk["data"]["width"] = self.buf.ru32l()
+                chunk["data"]["height"] = self.buf.ru32l()
+
+                field_count = self.buf.ru32l()
+                chunk["data"]["field-count"] = field_count
+
+                chunk["data"]["fields"] = []
+                for i in range(0, field_count):
+                    field = {}
+                    field["compressed-width"] = self.buf.ru32l()
+                    field["compressed-height"] = self.buf.ru32l()
+                    field["valid-width"] = self.buf.ru32l()
+                    field["valid-height"] = self.buf.ru32l()
+                    field["valid-x-offset"] = self.buf.ru32l()
+                    field["valid-y-offset"] = self.buf.ru32l()
+
+                    chunk["data"]["fields"].append(field)
+            case "ICMT" | "ISFT":
+                chunk["data"]["comment"] = self.buf.readunit().decode(
+                    "utf-8").rstrip("\x00")
+            case "RIFF" | "LIST":
+                chunk["data"]["type"] = self.buf.rs(4)
                 chunk["data"]["chunks"] = []
                 while self.buf.unit:
-                    chunk["data"]["chunks"].append(self.read_chunk())
-            case "LIST":
-                chunk["data"]["chunks"] = []
-                while self.buf.unit:
-                    chunk["data"]["chunks"].append(self.read_chunk())
-            case "data":
+                    list_chunk = self.read_chunk()
+
+                    if not re.match("\\d{2}(dc|db|wb|tx)", list_chunk["type"]):
+                        chunk["data"]["chunks"].append(list_chunk)
+                    else:
+                        if "skipped" not in chunk:
+                            chunk["skipped"] = 0
+
+                        chunk["skipped"] += 1
+            case "data" | "JUNK" | "idx1":
                 pass
             case _:
                 chunk["data"]["unknown"] = True

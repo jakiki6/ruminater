@@ -217,7 +217,8 @@ class IsoModule(module.RuminantModule):
             atom["data"]["pre_defined"] = self.buf.rh(4)
             atom["data"]["handler_type"] = self.buf.rs(4)
             atom["data"]["reserved"] = self.buf.rh(12)
-            atom["data"]["name"] = self.buf.readunit().decode("utf-8")
+            atom["data"]["name"] = self.buf.readunit().decode("utf-8").rstrip(
+                "\x00")
         elif typ == "vmhd":
             self.read_version(atom)
             atom["data"]["graphicsmode"] = self.buf.ru16()
