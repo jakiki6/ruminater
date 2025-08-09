@@ -379,16 +379,9 @@ class IsoModule(module.RuminantModule):
         elif typ == "data":
             self.read_version(atom)
             atom["data"]["type"] = self.buf.ru32()
-
-            match atom["data"]["type"]:
-                case 0:
-                    atom["data"]["payload"] = self.buf.readunit().decode(
-                        "utf-8")
-                case 1:
-                    atom["data"]["payload"] = self.buf.readunit().decode(
-                        "utf-16")
-                case _:
-                    atom["data"]["payload"] = self.buf.readunit().hex()
+            atom["data"]["payload"] = utils.decode(
+                self.buf.readunit(),
+                "utf-16" if atom["data"]["type"] == 1 else "utf-8")
         elif typ == "free":
             atom["data"]["non-zero"] = sum(self.buf.peek(self.buf.unit)) > 0
             if atom["data"]["non-zero"]:

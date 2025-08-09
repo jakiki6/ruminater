@@ -258,3 +258,10 @@ def zlib_decompress(content):
                     pass
 
             return data
+
+
+def decode(content, encoding="utf-8"):
+    try:
+        return content.decode(encoding)
+    except Exception:
+        content.decode("latin-1")
