@@ -7,6 +7,8 @@ import tempfile
 import os
 import re
 
+has_tqdm = False
+
 
 def process(file, walk):
     if not walk:
@@ -74,6 +76,8 @@ def process(file, walk):
 
 
 def main():
+    global has_tqdm
+
     if sys.platform == "linux":
         import traceback
         import signal
@@ -115,7 +119,22 @@ def main():
                         nargs="?",
                         help="Filename regex for directory mode")
 
+    has_tqdm = True
+    try:
+        import tqdm
+    except Exception:
+        has_tqdm = False
+
+    if has_tqdm:
+        parser.add_argument("--progress",
+                            "-p",
+                            action="store_true",
+                            help="Print progress")
+
     args = parser.parse_args()
+
+    if has_tqdm:
+        has_tqdm = args.progress
 
     if args.file == "-":
         args.file = "/dev/stdin"
@@ -158,7 +177,7 @@ def main():
 
             filename_regex = re.compile(args.filename_regex)
 
-            first = True
+            paths = []
             for root, _, files in os.walk(args.file):
                 for file in files:
                     file = os.path.join(root, file)
@@ -166,25 +185,32 @@ def main():
                     if filename_regex.match(file) is None:
                         continue
 
-                    try:
-                        with open(file, "rb") as fd:
-                            if first:
-                                first = False
-                            else:
-                                print(",")
+                    paths.append(file)
 
-                            print(
-                                f"    {{\n      \"path\": {json.dumps(file)},\n      \"data\": {{"  # noqa: E501
-                            )
+            if has_tqdm:
+                paths = tqdm.tqdm(paths)
 
-                            print("\n".join([
-                                "      " + x for x in process(
-                                    fd, args.walk).split("\n")[1:-1]
-                            ]))
+            first = True
+            for file in paths:
+                try:
+                    with open(file, "rb") as fd:
+                        if first:
+                            first = False
+                        else:
+                            print(",")
 
-                            print("      }\n    }", end="")
-                    except Exception:
-                        pass
+                        print(
+                            f"    {{\n      \"path\": {json.dumps(file)},\n      \"data\": {{"  # noqa: E501
+                        )
+
+                        print("\n".join([
+                            "      " + x
+                            for x in process(fd, args.walk).split("\n")[1:-1]
+                        ]))
+
+                        print("      }\n    }", end="")
+                except Exception:
+                    pass
 
             print("\n  ]\n}")
         else:
