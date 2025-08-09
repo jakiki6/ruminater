@@ -213,6 +213,10 @@ def main():
                     pass
 
             print("\n  ]\n}")
+
+            if has_tqdm:
+                paths.set_postfix_str(os.path.basename(file))
+
         else:
             with open(args.file, "rb") as file:
                 print(process(file, args.walk))
