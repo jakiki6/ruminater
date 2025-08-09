@@ -192,6 +192,9 @@ def main():
 
             first = True
             for file in paths:
+                if has_tqdm:
+                    paths.set_postfix_str(os.path.basename(file))
+
                 try:
                     with open(file, "rb") as fd:
                         if first:
@@ -213,9 +216,6 @@ def main():
                     pass
 
             print("\n  ]\n}")
-
-            if has_tqdm:
-                paths.set_postfix_str(os.path.basename(file))
 
         else:
             with open(args.file, "rb") as file:
