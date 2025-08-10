@@ -294,3 +294,7 @@ def decode(content, encoding="utf-8"):
         return content.decode(encoding)
     except Exception:
         content.decode("latin-1")
+
+
+def unraw(i, width, choices):
+    return {"raw": i, "name": choices.get(i, "Unknown")}

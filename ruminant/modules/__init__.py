@@ -101,4 +101,4 @@ def chew(blob, walk_mode=False):
     return EntryModule(walk_mode, Buf.of(blob)).chew()
 
 
-from . import containers, images, videos, documents, fonts, audio, x509  # noqa: F401,E402,E501
+from . import containers, images, videos, documents, fonts, audio, x509, compression  # noqa: F401,E402,E501
