@@ -55,6 +55,9 @@ class PemModule(module.RuminantModule):
 
             content += line
 
+        while self.buf.peek(1) in (b"\r", b"\n"):
+            self.buf.skip(1)
+
         meta["data"] = utils.read_der(buf.Buf(base64.b64decode(content)))
 
         return meta

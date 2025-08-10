@@ -142,7 +142,28 @@ def read_der(buf):
                                                                   skip)
         case 0x04:
             data["type"] = "OCTET STRING"
-            data["value"] = buf.readunit().hex()
+
+            nested = True
+            with buf:
+                try:
+                    if buf.ru8() & 0x0f == 0x0f:
+                        c = 0x80
+                        while c & 0x80:
+                            c = buf.ru8()
+
+                    length = buf.ru8()
+                    if length & 0x80:
+                        length = int.from_bytes(buf.read(length & 0x7f), "big")
+
+                    assert buf.unit == length
+                except Exception:
+                    nested = False
+
+            if nested:
+                with buf.subunit():
+                    data["value"] = read_der(buf)
+            else:
+                data["value"] = buf.readunit().hex()
         case 0x05:
             data["type"] = "NULL"
             data["value"] = None
@@ -207,6 +228,14 @@ def read_der(buf):
 
     if tag >= 0x80 and tag <= 0xbe:
         data["type"] = f"X509 [{tag & 0x0f}]"
+
+        if not constructed:
+            content = buf.readunit()
+
+            if tag & 0x0f == 0x06:
+                data["value"] = content.decode("latin-1")
+            else:
+                data["value"] = content.hex()
 
     if constructed:
         data["value"] = []

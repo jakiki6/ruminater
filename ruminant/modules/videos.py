@@ -1242,7 +1242,7 @@ class MatroskaModule(module.RuminantModule):
         0x1254c367: ("Tags", "master"),
         0x1f43b675: ("Cluster", "skipped-master"),
         0x2ad7b1: ("TimestampScale", "uint"),
-        0x1c53bb6b: ("Cues", "master"),
+        0x1c53bb6b: ("Cues", "skipped-master"),
         0x67: ("Timestamp", "uint"),
         0x27: ("Position", "uint"),
         0x4d80: ("MuxingApp", "utf8"),
