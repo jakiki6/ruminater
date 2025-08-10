@@ -8,7 +8,17 @@ import os
 import re
 
 has_tqdm = False
+print_filenames = False
 
+def walk_helper(path, filename_regex):
+    for root, _, files in os.walk(path):
+        for file in files:
+            file = os.path.join(root, file)
+
+            if filename_regex.match(file) is None:
+                continue
+
+            yield file
 
 def process(file, walk):
     if not walk:
@@ -76,7 +86,7 @@ def process(file, walk):
 
 
 def main():
-    global has_tqdm
+    global has_tqdm, args
 
     if sys.platform == "linux":
         import traceback
@@ -131,10 +141,15 @@ def main():
                             action="store_true",
                             help="Print progress")
 
+        parser.add_argument("--progress-names",
+                        action="store_true",
+                        help="Print filenames in the progress bar")
+
     args = parser.parse_args()
 
     if has_tqdm:
         has_tqdm = args.progress
+        print_filenames = args.progress_names
 
     if args.file == "-":
         args.file = "/dev/stdin"
@@ -177,22 +192,24 @@ def main():
 
             filename_regex = re.compile(args.filename_regex)
 
-            paths = []
-            for root, _, files in os.walk(args.file):
-                for file in files:
-                    file = os.path.join(root, file)
-
-                    if filename_regex.match(file) is None:
-                        continue
-
-                    paths.append(file)
-
             if has_tqdm:
+                paths = []
+                for root, _, files in os.walk(args.file):
+                    for file in files:
+                        file = os.path.join(root, file)
+
+                        if filename_regex.match(file) is None:
+                            continue
+
+                        paths.append(file)
+
                 paths = tqdm.tqdm(paths)
+            else:
+                paths = walk_helper(args.file, filename_regex)
 
             first = True
             for file in paths:
-                if has_tqdm:
+                if has_tqdm and print_filenames:
                     paths.set_postfix_str(os.path.basename(file))
 
                 try:

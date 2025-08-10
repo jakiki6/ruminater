@@ -312,6 +312,10 @@ class PdfModule(module.RuminantModule):
                                     obj["decompression-error"] = True
 
                                 buf = Buf(content)
+                            case "/ASCIIHexDecode":
+                                buf = Buf(
+                                    bytes.fromhex(buf.read().rstrip(
+                                        b"\n").rstrip(b">").decode("latin-1")))
 
                     if "DecodeParms" in obj["value"]:
                         params = self.resolve(obj["value"]["DecodeParms"])

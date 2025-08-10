@@ -57,25 +57,26 @@ class ZipModule(module.RuminantModule):
                                                       "latin-1")
             file["meta"]["comment"] = self.buf.rs(comment_length)
 
-            with self.buf:
-                self.buf.seek(file["offset"])
-                assert self.buf.ru32() == 0x504b0304, "broken ZIP file"
-                self.buf.skip(22)
-                self.buf.skip(self.buf.ru16l() + self.buf.ru16l())
+            if file["uncompressed-size"] > 0:
+                with self.buf:
+                    self.buf.seek(file["offset"])
+                    assert self.buf.ru32() == 0x504b0304, "broken ZIP file"
+                    self.buf.skip(22)
+                    self.buf.skip(self.buf.ru16l() + self.buf.ru16l())
 
-                match file["meta"]["compression-method"]:
-                    case 0:
-                        with self.buf.sub(file["uncompressed-size"]):
-                            file["data"] = chew(self.buf)
+                    match file["meta"]["compression-method"]:
+                        case 0:
+                            with self.buf.sub(file["uncompressed-size"]):
+                                file["data"] = chew(self.buf)
 
-                    case 8:
-                        with self.buf.sub(file["meta"]["compressed-size"]):
-                            fd = tempfile.TemporaryFile()
-                            utils.stream_deflate(self.buf, fd,
-                                                 self.buf.available())
-                            fd.seek(0)
+                        case 8:
+                            with self.buf.sub(file["meta"]["compressed-size"]):
+                                fd = tempfile.TemporaryFile()
+                                utils.stream_deflate(self.buf, fd,
+                                                     self.buf.available())
+                                fd.seek(0)
 
-                            file["data"] = chew(fd)
+                                file["data"] = chew(fd)
 
             meta["files"].append(file)
 

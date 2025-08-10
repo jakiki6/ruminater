@@ -154,9 +154,11 @@ class Buf(object):
     def search(self, s, buf_length=1 << 24):
         buf = b""
         while True:
-            buf += self.read(
+            chunk = self.read(
                 min(buf_length, self.unit if self.unit else buf_length))
-            if self.unit is not None and self.unit <= 0:
+            buf += chunk
+
+            if (self.unit is not None and self.unit <= 0) or len(chunk) == 0:
                 raise ValueError(f"pattern {s.hex()} not found")
 
             if s not in buf:

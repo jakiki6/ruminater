@@ -21,6 +21,7 @@ class EntryModule(module.RuminantModule):
 
         meta = {}
         meta["blob-id"] = blob_id
+        my_blob_id = blob_id
         blob_id += 1
 
         offset = self.buf.tell()
@@ -60,7 +61,13 @@ class EntryModule(module.RuminantModule):
 
                 if self.buf.available() and not self.walk_mode:
                     with self.buf.cut():
-                        meta["trailer"] = self.chew()
+                        meta = {"type": "nested", "segments": [meta]}
+
+                        trailer = self.chew()
+                        if trailer["type"] == "nested":
+                            meta["segments"] += trailer["segments"]
+                        else:
+                            meta["segments"].append(trailer)
 
                     self.buf.skip(self.buf.available())
                 break
@@ -68,15 +75,14 @@ class EntryModule(module.RuminantModule):
         if not matched:
             meta |= {"type": "unknown", "length": self.buf.size()}
 
-        if extract_all and meta["blob-id"] > 0:
-            to_extract.append((meta["blob-id"],
-                               os.path.join("blobs",
-                                            f"{meta['blob-id']}.bin")))
+        if extract_all and my_blob_id > 0:
+            to_extract.append(
+                (my_blob_id, os.path.join("blobs", f"{my_blob_id}.bin")))
 
         for entry in to_extract[:]:
             k, v = entry
 
-            if k == meta["blob-id"]:
+            if k == my_blob_id:
                 to_extract.remove(entry)
 
                 with self.buf:
@@ -84,7 +90,9 @@ class EntryModule(module.RuminantModule):
                     self.buf.seek(offset)
 
                     with open(v, "wb") as file:
-                        length = meta["length"]
+                        length = meta["length"] if meta[
+                            "type"] != "nested" else meta["segments"][0][
+                                "length"]
 
                         while length:
                             blob = self.buf.read(min(1 << 24, length))
