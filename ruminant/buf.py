@@ -245,13 +245,13 @@ class Buf(object):
         return self.ru16() / 256
 
     def rfp32(self):
-        return self.ru32l() / 65536
+        return self.ru32() / 65536
 
     def rsfp16(self):
-        return self.ri16l() / 256
+        return self.ri16() / 256
 
     def rsfp32(self):
-        return self.ri32l() / 65536
+        return self.ri32() / 65536
 
     def rfp16l(self):
         return self.ru16l() / 256
