@@ -53,6 +53,8 @@ Ruminant is still in early alpha but it can already process the following file t
   * X509 certificates
   * PEM files
 * GZIP streams
+* TAR files
+  * USTAR to be precise
 
 # How do I install it?
 Run `pip3 install ruminant`.

@@ -332,3 +332,73 @@ class RIFFModule(module.RuminantModule):
         self.buf.popunit()
 
         return chunk
+
+
+@module.register
+class TarModule(module.RuminantModule):
+
+    def identify(buf):
+        return buf.peek(262)[257:] == b"ustar"
+
+    def chew(self):
+        meta = {}
+        meta["type"] = "tar"
+
+        meta["name"] = self.buf.rs(100).rstrip(" ").rstrip("\x00")
+        meta["mode"] = self.buf.rs(8).rstrip(" ").rstrip("\x00")
+        meta["owner-uid"] = self.buf.rs(8).rstrip(" ").rstrip("\x00")
+        meta["owner-gid"] = self.buf.rs(8).rstrip(" ").rstrip("\x00")
+
+        file_length = self.buf.rs(12).rstrip(" ").rstrip("\x00")
+        meta["size"] = file_length
+
+        meta["modification-date"] = self.buf.rs(12).rstrip(" ").rstrip("\x00")
+        meta["checksum"] = self.buf.rs(8).rstrip(" ").rstrip("\x00")
+        meta["file-type"] = utils.unraw(
+            self.buf.ru8(), 1, {
+                0: "Normal file",
+                ord("0"): "Normal file",
+                ord("1"): "Hard link",
+                ord("2"): "Soft link",
+                ord("3"): "Character special",
+                ord("4"): "Block special",
+                ord("5"): "Directory",
+                ord("6"): "FIFO",
+                ord("7"): "Contiguous file",
+                ord("g"): "Global pax header",
+                ord("x"): "Local pax header"
+            })
+
+        meta["link-name"] = self.buf.rs(100).rstrip(" ").rstrip("\x00")
+
+        self.buf.skip(6)
+
+        meta["ustar-version"] = self.buf.rs(2).rstrip(" ").rstrip("\x00")
+        meta["owner-user-name"] = self.buf.rs(32).rstrip(" ").rstrip("\x00")
+        meta["owner-group-name"] = self.buf.rs(32).rstrip(" ").rstrip("\x00")
+        meta["device-major"] = self.buf.rs(8).rstrip(" ").rstrip("\x00")
+        meta["device-minor"] = self.buf.rs(8).rstrip(" ").rstrip("\x00")
+        meta["name"] = self.buf.rs(155).rstrip(" ").rstrip(
+            "\x00") + meta["name"]
+
+        self.buf.skip(12)
+
+        file_length = int(file_length, 8)
+
+        if file_length > 0:
+            self.buf.pushunit()
+            self.buf.setunit(file_length)
+
+            with self.buf.subunit():
+                if meta["file-type"]["raw"] == ord("x"):
+                    meta["data"] = self.buf.readunit().decode("utf-8")
+                else:
+                    meta["data"] = chew(self.buf)
+
+            self.buf.skipunit()
+            self.buf.popunit()
+
+            if file_length % 512:
+                self.buf.skip(512 - (file_length % 512))
+
+        return meta

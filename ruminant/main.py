@@ -10,6 +10,7 @@ import re
 has_tqdm = False
 print_filenames = False
 
+
 def walk_helper(path, filename_regex):
     for root, _, files in os.walk(path):
         for file in files:
@@ -19,6 +20,7 @@ def walk_helper(path, filename_regex):
                 continue
 
             yield file
+
 
 def process(file, walk):
     if not walk:
@@ -142,8 +144,8 @@ def main():
                             help="Print progress")
 
         parser.add_argument("--progress-names",
-                        action="store_true",
-                        help="Print filenames in the progress bar")
+                            action="store_true",
+                            help="Print filenames in the progress bar")
 
     args = parser.parse_args()
 
