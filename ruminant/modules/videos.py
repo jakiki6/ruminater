@@ -385,8 +385,12 @@ class IsoModule(module.RuminantModule):
         elif typ == "free":
             atom["data"]["non-zero"] = sum(self.buf.peek(self.buf.unit)) > 0
             if atom["data"]["non-zero"]:
-                with self.buf.subunit():
-                    atom["data"]["data"] = chew(self.buf)
+                if self.buf.peek(3) == b"Iso":
+                    atom["data"]["gpac-string"] = self.buf.readunit().decode(
+                        "utf-8").rstrip("\x00")
+                else:
+                    with self.buf.subunit():
+                        atom["data"]["content"] = chew(self.buf)
         elif typ == "co64":
             self.read_version(atom)
             entry_count = self.buf.ru32()
@@ -1478,8 +1482,8 @@ class OggModule(module.RuminantModule):
 
         slacks = {}
         streams = []
-        while len(streams) or self.buf.peek(4) == b"OggS":
-            assert self.buf.read(4) == b"OggS", "broken Ogg page"
+        while self.buf.peek(4) == b"OggS":
+            self.buf.skip(4)
             assert self.buf.ru8() == 0, "broken Ogg page"
 
             flags = self.buf.ru8()
@@ -1589,7 +1593,15 @@ class OggModule(module.RuminantModule):
             packet["data"]["pic-x"] = buf.ru8()
             packet["data"]["pic-y"] = buf.ru8()
             packet["data"]["framerate"] = buf.ru32() / buf.ru32()
-            packet["data"]["aspect"] = buf.ru24l() / buf.ru24l()
+
+            a = buf.ru24l()
+            b = buf.ru24l()
+            packet["data"]["aspect"] = {
+                "a": a,
+                "b": b,
+                "rational-approximation": a / b if b != 0 else None
+            }
+
             packet["data"]["colorspace"] = buf.ru8()
             packet["data"]["pixel-fmt-flags"] = buf.ru8()
             packet["data"]["target-bitrate"] = buf.ru24l()

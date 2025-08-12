@@ -129,9 +129,11 @@ class TrueTypeModule(module.RuminantModule):
                         table["data"]["flags"] = self.buf.rh(2)
                         table["data"]["units-per-em"] = self.buf.ru16()
                         table["data"]["created"] = utils.mp4_time_to_iso(
-                            self.buf.ri64())
+                            self.buf.ri64() if self.buf.pu32() ==
+                            0 else self.buf.ri64l())
                         table["data"]["modified"] = utils.mp4_time_to_iso(
-                            self.buf.ri64())
+                            self.buf.ri64() if self.buf.pu32() ==
+                            0 else self.buf.ri64l())
                         table["data"]["x-min"] = self.buf.ri16()
                         table["data"]["y-min"] = self.buf.ri16()
                         table["data"]["x-max"] = self.buf.ri16()
