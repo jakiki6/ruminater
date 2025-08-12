@@ -850,6 +850,10 @@ class JPEGModule(module.RuminantModule):
             elif typ == 0xe2 and self.buf.peek(12) == b"ICC_PROFILE\x00":
                 with self.buf.subunit():
                     chunk["data"]["icc-profile"] = chew(self.buf)
+            elif typ == 0xe2 and self.buf.peek(4) == b"MPF\x00":
+                self.buf.skip(4)
+                with self.buf.subunit():
+                    chunk["data"]["tiff"] = chew(self.buf)
             elif typ == 0xec and self.buf.peek(5) == b"Ducky":
                 self.buf.skip(5)
 
@@ -1299,6 +1303,25 @@ class TIFFModule(module.RuminantModule):
         37520: "SubSecTime",
         37521: "SubSecTimeOriginal",
         37522: "SubSecTimeDigitized",
+        45056: "MPFVersion",
+        45057: "NumberOfImages",
+        45058: "MPImageList",
+        45059: "ImageUIDList",
+        45060: "TotalFrames",
+        45313: "MPIndividualNum",
+        45569: "PanOrientation",
+        45570: "PanOverlapH",
+        45571: "PanOverlapV",
+        45572: "BaseViewpointNum",
+        45573: "ConvergenceAngle",
+        45574: "BaselineLength",
+        45575: "VerticalDivergence",
+        45576: "AxisDistanceX",
+        45577: "AxisDistanceY",
+        45578: "AxisDistanceZ",
+        45579: "YawAngle",
+        45580: "PitchAngle",
+        45581: "RollAngle",
         40960: "FlashpixVersion",
         40961: "ColorSpace",
         40962: "PixelXDimension",
@@ -1403,7 +1426,7 @@ class TIFFModule(module.RuminantModule):
 
                 tag["values"] = []
                 with self.buf:
-                    if ((field_type in (1, 2) and count <= 4)
+                    if ((field_type in (1, 2, 7) and count <= 4)
                             or (field_type in (3, 8, 11) and count <= 2)
                             or (field_type in (4, 9, 12) and count <= 1)):
                         self.buf.seek(offset_field_offset)
@@ -1448,6 +1471,9 @@ class TIFFModule(module.RuminantModule):
                             case 6:
                                 tag["values"].append(
                                     self.buf.ri8l() if le else self.buf.ri8())
+                            case 7:
+                                tag["values"].append(self.buf.rh(count))
+                                break
                             case 8:
                                 tag["values"].append(self.buf.ri16l(
                                 ) if le else self.buf.ri16())

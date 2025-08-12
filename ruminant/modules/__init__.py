@@ -77,7 +77,8 @@ class EntryModule(module.RuminantModule):
 
         if extract_all and my_blob_id > 0:
             to_extract.append(
-                (my_blob_id, os.path.join("blobs", f"{str(my_blob_id).zfill(8)}.bin")))
+                (my_blob_id,
+                 os.path.join("blobs", f"{str(my_blob_id).zfill(8)}.bin")))
 
         for entry in to_extract[:]:
             k, v = entry
