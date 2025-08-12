@@ -854,6 +854,10 @@ class JPEGModule(module.RuminantModule):
                 self.buf.skip(4)
                 with self.buf.subunit():
                     chunk["data"]["tiff"] = chew(self.buf)
+            elif typ == 0xe2 and self.buf.peek(
+                    27) == b"urn:iso:std:iso:ts:21496:-1":
+                self.buf.skip(32)
+                chunk["data"]["hdr-gainmap-length"] = self.buf.unit
             elif typ == 0xec and self.buf.peek(5) == b"Ducky":
                 self.buf.skip(5)
 
