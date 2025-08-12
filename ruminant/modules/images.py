@@ -964,6 +964,8 @@ class PNGModule(module.RuminantModule):
         meta = {}
         meta["type"] = "png"
 
+        color_type = None
+
         self.buf.seek(8)
         meta["chunks"] = []
         while self.buf.available():
@@ -1003,7 +1005,8 @@ class PNGModule(module.RuminantModule):
                     chunk["data"]["width"] = self.buf.ru32()
                     chunk["data"]["height"] = self.buf.ru32()
                     chunk["data"]["bit-depth"] = self.buf.ru8()
-                    chunk["data"]["color-type"] = self.buf.ru8()
+                    color_type = self.buf.ru8()
+                    chunk["data"]["color-type"] = color_type
                     chunk["data"]["compression"] = self.buf.ru8()
                     chunk["data"]["filter-method"] = self.buf.ru8()
                     chunk["data"]["interlace-method"] = self.buf.ru8()
@@ -1146,6 +1149,22 @@ class PNGModule(module.RuminantModule):
                             8: "Left Bottom"
                         }.get(orientation, "Unknown")
                     }
+                case "sBIT":
+                    match color_type:
+                        case 0:
+                            chunk["data"]["significant-bits"] = self.buf.ru8()
+                        case 4:
+                            chunk["data"]["significant-bits"] = [
+                                self.buf.ru8() for i in range(0, 2)
+                            ]
+                        case 2 | 3:
+                            chunk["data"]["significant-bits"] = [
+                                self.buf.ru8() for i in range(0, 3)
+                            ]
+                        case 6:
+                            chunk["data"]["significant-bits"] = [
+                                self.buf.ru8() for i in range(0, 4)
+                            ]
                 case "IDAT" | "IEND" | "PLTE" | "tRNS" | "npOl" | "npTc":
                     pass
                 case _:
