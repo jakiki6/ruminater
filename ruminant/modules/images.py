@@ -1644,6 +1644,20 @@ class GifModule(module.RuminantModule):
                                     }
 
                                     processed_subdata = True
+                                case "XMP DataXMP":
+                                    data = b""
+                                    while self.buf.pu8() != 0x01:
+                                        data += self.buf.read(1)
+
+                                    while self.buf.pu8() != 0:
+                                        self.buf.skip(1)
+
+                                    self.buf.skip(2)
+
+                                    block["data"] = utils.xml_to_dict(
+                                        data.decode("utf-8"))
+
+                                    processed_subdata = True
                                 case _:
                                     block["unknown"] = True
                         case _:
