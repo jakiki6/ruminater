@@ -796,6 +796,14 @@ class JPEGModule(module.RuminantModule):
             else:
                 length = 0
 
+            if typ != 0xda and length > 0:
+                with self.buf:
+                    self.buf.skip(length)
+
+                    while self.buf.pu8() != 0xff and self.buf.available():
+                        self.buf.skip(1)
+                        length += 1
+
             self.buf.pushunit()
             self.buf.setunit(length)
             chunk["length"] = length
