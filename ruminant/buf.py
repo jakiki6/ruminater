@@ -1,6 +1,7 @@
 import io
 import struct
 import uuid
+from . import utils
 
 
 class Buf(object):
@@ -370,10 +371,10 @@ class Buf(object):
         return self.peek(length).hex()
 
     def rs(self, length, encoding="utf-8"):
-        return self.read(length).decode(encoding)
+        return utils.decode(self.read(length), encoding)
 
     def ps(self, length, encoding="utf-8"):
-        return self.peek(length).decode(encoding)
+        return utils.decode(self.peek(length), encoding)
 
     def rzs(self, encoding="utf-8"):
         s = b""
@@ -382,7 +383,7 @@ class Buf(object):
 
         self.skip(1)
 
-        return s.decode(encoding)
+        return utils.decode(s, encoding)
 
     def pzs(self, encoding="utf-8"):
         pos = self.tell()
@@ -393,7 +394,7 @@ class Buf(object):
 
         self.seek(pos)
 
-        return s.decode(encoding)
+        return utils.decode(s, encoding)
 
     def ruuid(self):
         return str(uuid.UUID(bytes=self.read(16)))

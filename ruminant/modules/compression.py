@@ -104,3 +104,28 @@ class GzipModule(module.RuminantModule):
         meta["size-mod-2^32"] = self.buf.ru32l()
 
         return meta
+
+
+@module.register
+class Bzip2Module(module.RuminantModule):
+
+    def identify(buf):
+        return buf.peek(2) == b"BZ"
+
+    def chew(self):
+        meta = {}
+        meta["type"] = "bzip2"
+
+        with self.buf:
+            offset = self.buf.tell()
+
+            self.buf.search(b"\x17\x72\x45\x38\x50\x90")
+            length = self.buf.tell() - offset
+
+        with tempfile.TemporaryFile() as fd:
+            utils.stream_bzip2(self.buf, fd, length)
+
+            fd.seek(0)
+            meta["data"] = chew(fd)
+
+        return meta

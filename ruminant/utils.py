@@ -3,6 +3,7 @@ import uuid
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta
 import zlib
+import bz2
 
 
 def _xml_to_dict(elem):
@@ -102,6 +103,18 @@ def stream_deflate(src, dst, compressed_size, chunk_size=1 << 24):
     flushed = decompressor.flush()
     if flushed:
         dst.write(flushed)
+
+
+def stream_bzip2(src, dst, compressed_size, chunk_size=1 << 24):
+    remaining = compressed_size
+    decompressor = bz2.BZ2Decompressor()
+
+    while remaining > 0:
+        chunk = src.read(min(chunk_size, remaining))
+        dst.write(decompressor.decompress(chunk))
+        remaining -= len(chunk)
+
+    src.seek(-len(decompressor.unused_data), 1)
 
 
 def read_der(buf):
@@ -293,7 +306,7 @@ def decode(content, encoding="utf-8"):
     try:
         return content.decode(encoding)
     except Exception:
-        content.decode("latin-1")
+        return content.decode("latin-1")
 
 
 def unraw(i, width, choices):
