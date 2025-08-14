@@ -471,3 +471,19 @@ MICROSOFT_LCIDS = {
     58380: "fr-015",
     61166: "reserved"
 }
+
+PGP_HASHES = {
+    1: "MD5",
+    2: "SHA1",
+    3: "RIPEMD160",
+    8: "SHA256",
+    9: "SHA384",
+    10: "SHA512",
+    11: "SHA224",
+}
+
+PGP_PUBLIC_KEYS = {
+    1: "RSA",
+    2: "RSA",
+    3: "RSA",
+}

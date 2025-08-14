@@ -1,4 +1,5 @@
 from .oids import OIDS
+from .constants import PGP_HASHES, PGP_PUBLIC_KEYS
 import uuid
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta, UTC
@@ -374,21 +375,32 @@ def read_pgp_subpacket(buf):
         case 0x10:
             packet["type"] = "Issuer"
             data["key-id"] = buf.rh(8)
+        case 0x14:
+            packet["type"] = "Notation Data"
+            data["flags"] = {
+                "raw": buf.ph(4),
+                "human-readable": bool(buf.ru32l() & 0x80)
+            }
+
+            name_length = buf.ru16()
+            value_length = buf.ru16()
+
+            data["name"] = buf.rs(name_length)
+
+            if data["flags"]["human-readable"]:
+                data["value"] = buf.rs(value_length)
+            else:
+                data["value"] = buf.rh(value_length)
         case 0x15:
             packet["type"] = "Preferred Hash Algorithms"
 
             data["algorithms"] = []
             while buf.unit > 0:
                 algorithm = buf.ru8()
-                data["algorithms"].append({
-                    1: "MD5",
-                    2: "SHA1",
-                    3: "RIPEMD160",
-                    8: "SHA256",
-                    9: "SHA384",
-                    10: "SHA512",
-                    11: "SHA224",
-                }.get(algorithm, f"Unknown (0x{hex(algorithm)[2:].zfill(2)})"))
+                data["algorithms"].append(
+                    PGP_HASHES.get(
+                        algorithm,
+                        f"Unknown (0x{hex(algorithm)[2:].zfill(2)})"))
         case 0x16:
             packet["type"] = "Preferred Compression Algorithms"
 
@@ -523,13 +535,9 @@ def _read_pgp(buf, fake=None):
 
                     algorithm = buf.ru8()
                     data["public-key-algorithm"] = unraw(
-                        algorithm, 1, {
-                            1: "RSA",
-                            2: "RSA",
-                            3: "RSA",
-                        })
+                        algorithm, 1, PGP_PUBLIC_KEYS)
 
-                    data["hash-algorithm"] = unraw(buf.ru8(), 1, {8: "SHA256"})
+                    data["hash-algorithm"] = unraw(buf.ru8(), 1, PGP_HASHES)
 
                     buf.pushunit()
                     buf.setunit(buf.ru16())

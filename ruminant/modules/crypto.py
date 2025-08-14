@@ -64,10 +64,11 @@ class PemModule(module.RuminantModule):
 
 
 @module.register
-class PpgModule(module.RuminantModule):
+class PgpModule(module.RuminantModule):
 
     def identify(buf):
-        return buf.peek(36) == b"-----BEGIN PGP PUBLIC KEY BLOCK-----" or (buf.pu8() in (0x85, 0x89) and buf.peek(4)[3] in (0x03, 0x04))
+        return buf.peek(36) == b"-----BEGIN PGP PUBLIC KEY BLOCK-----" or (
+            buf.pu8() in (0x85, 0x89) and buf.peek(4)[3] in (0x03, 0x04))
 
     def chew(self):
         meta = {}
