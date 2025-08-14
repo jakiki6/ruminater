@@ -24,3 +24,7 @@ This is a list of useful resources.
 
 # JPEG
 * https://web.archive.org/web/20190713230858/http://www.cipa.jp/std/documents/e/DC-007_E.pdf
+
+# PGP
+* https://www.rfc-editor.org/rfc/rfc4880
+* https://www.rfc-editor.org/rfc/rfc9580

@@ -1,7 +1,7 @@
 from .oids import OIDS
 import uuid
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, UTC
 import zlib
 import bz2
 
@@ -117,6 +117,27 @@ def stream_bzip2(src, dst, compressed_size, chunk_size=1 << 24):
     src.seek(-len(decompressor.unused_data), 1)
 
 
+def read_oid(buf, limit=-1):
+    oid = []
+    c = buf.ru8()
+    oid.append(c // 40)
+    oid.append(c % 40)
+
+    i = 0
+    while buf.unit > 0 and limit != 0:
+        c = buf.ru8()
+        i <<= 7
+        i |= c & 0x7f
+
+        if not c & 0x80:
+            oid.append(i)
+            i = 0
+
+        limit -= 1
+
+    return lookup_oid(oid)
+
+
 def read_der(buf):
     data = {}
 
@@ -182,23 +203,7 @@ def read_der(buf):
             data["value"] = None
         case 0x06:
             data["type"] = "OBJECT IDENTIFIER"
-
-            oid = []
-            c = buf.ru8()
-            oid.append(c // 40)
-            oid.append(c % 40)
-
-            i = 0
-            while buf.unit > 0:
-                c = buf.ru8()
-                i <<= 7
-                i |= c & 0x7f
-
-                if not c & 0x80:
-                    oid.append(i)
-                    i = 0
-
-            data["value"] = lookup_oid(oid)
+            data["value"] = read_oid(buf)
         case 0x0c:
             data["type"] = "UTF8String"
             data["value"] = buf.readunit().decode("utf-8")
@@ -311,3 +316,302 @@ def decode(content, encoding="utf-8"):
 
 def unraw(i, width, choices):
     return {"raw": i, "name": choices.get(i, "Unknown")}
+
+
+def read_pgp_mpi(buf):
+    bit_length = buf.ru16()
+    return int.from_bytes(buf.read(
+        (bit_length + 7) // 8), "big") & ((1 << bit_length) - 1)
+
+
+def read_pgp_subpacket(buf):
+    packet = {}
+
+    length = buf.ru8()
+    if length >= 192 and length < 255:
+        length = ((length - 192) << 8) + buf.ru8() + 192
+    elif length == 255:
+        length = buf.ru32()
+
+    buf.pushunit()
+    buf.setunit(length)
+
+    packet["length"] = length
+
+    typ = buf.ru8()
+    packet["type"] = None
+
+    data = {}
+    packet["data"] = data
+
+    match typ:
+        case 0x02:
+            packet["type"] = "Signature Creation Time"
+            data["time"] = datetime.fromtimestamp(buf.ru32(), UTC).isoformat()
+        case 0x04:
+            packet["type"] = "Expiration Time"
+            data["expiration-offset"] = buf.ru32()
+        case 0x09:
+            packet["type"] = "Key Expiration Time"
+            data["expiration-offset"] = buf.ru32()
+        case 0x0b:
+            packet["type"] = "Preferred Symmetric Algorithms"
+
+            data["algorithms"] = []
+            while buf.unit > 0:
+                algorithm = buf.ru8()
+                data["algorithms"].append({
+                    0: "Unencrypted",
+                    1: "IDEA",
+                    2: "3DES",
+                    3: "CAST5",
+                    4: "Blowfish",
+                    7: "AES-128",
+                    8: "AES-192",
+                    9: "AES-256",
+                    10: "Twofish-256"
+                }.get(algorithm, f"Unknown (0x{hex(algorithm)[2:].zfill(2)})"))
+        case 0x10:
+            packet["type"] = "Issuer"
+            data["key-id"] = buf.rh(8)
+        case 0x15:
+            packet["type"] = "Preferred Hash Algorithms"
+
+            data["algorithms"] = []
+            while buf.unit > 0:
+                algorithm = buf.ru8()
+                data["algorithms"].append({
+                    1: "MD5",
+                    2: "SHA1",
+                    3: "RIPEMD160",
+                    8: "SHA256",
+                    9: "SHA384",
+                    10: "SHA512",
+                    11: "SHA224",
+                }.get(algorithm, f"Unknown (0x{hex(algorithm)[2:].zfill(2)})"))
+        case 0x16:
+            packet["type"] = "Preferred Compression Algorithms"
+
+            data["algorithms"] = []
+            while buf.unit > 0:
+                algorithm = buf.ru8()
+                data["algorithms"].append({
+                    0: "Uncompressed",
+                    1: "ZIP",
+                    2: "ZLIB",
+                    3: "BZip2"
+                }.get(algorithm, f"Unknown (0x{hex(algorithm)[2:].zfill(2)})"))
+        case 0x17:
+            packet["type"] = "Key Server Preferences"
+            flags = buf.read(buf.unit)
+            data["flags"] = {
+                "raw": flags.hex(),
+                "no-modify": bool(flags[0] & 0x80)
+            }
+        case 0x19:
+            packet["type"] = "Primary User ID"
+            data["is-primary-user-id"] = bool(buf.ru8())
+        case 0x1b:
+            packet["type"] = "Key Flags"
+            flags = buf.ru8()
+            data["flags"] = {
+                "raw": flags,
+                "can-sign-data": bool(flags & (1 << 0)),
+                "can-encrypt-communication": bool(flags & (1 << 1)),
+                "can-encrypt-storage": bool(flags & (1 << 2)),
+                "can-authenticate": bool(flags & (1 << 3)),
+                "can-certify-other-keys": bool(flags & (1 << 4))
+            }
+        case 0x1e:
+            packet["type"] = "Features"
+
+            flags = buf.read(buf.unit)
+            data["flags"] = {
+                "raw": flags.hex(),
+                "use-mdc": bool(flags[0] & 0x01)
+            }
+        case 0x20:
+            packet["type"] = "Embedded Signature"
+            data["embedded-packet"] = _read_pgp(buf, fake=(2, buf.unit))
+        case 0x21:
+            packet["type"] = "Issuer Fingerprint"
+
+            data["version"] = buf.ru8()
+            match data["version"]:
+                case 4:
+                    data["fingerprint"] = buf.rh(buf.unit)
+                case _:
+                    packet["unknown"] = True
+        case _:
+            packet["type"] = f"Unknown (0x{hex(typ)[2:].zfill(2)})"
+            packet["unknown"] = True
+
+    buf.skipunit()
+    buf.popunit()
+
+    return packet
+
+
+def _read_pgp(buf, fake=None):
+    packet = {}
+
+    if fake is None:
+        tag = buf.ru8()
+        if tag & 0b01000000:
+            tag = tag & 0b00111111
+
+            length = buf.ru8()
+            if length >= 192 and length < 255:
+                length = ((length - 192) << 8) + buf.ru8() + 192
+            elif length == 255:
+                length = buf.ru32()
+        else:
+            packet["old"] = True
+            length_type = tag & 0b00000011
+            tag = (tag & 0b00111100) >> 2
+
+            match length_type:
+                case 0:
+                    length = buf.ru8()
+                case 1:
+                    length = buf.ru16()
+                case 2:
+                    length = buf.ru32()
+                case 3:
+                    length = buf.unit
+    else:
+        tag, length = fake
+
+    buf.pushunit()
+    buf.setunit(length)
+
+    packet["length"] = length
+
+    data = {}
+    packet["tag"] = None
+    packet["data"] = data
+    match tag:
+        case 0x02:
+            packet["tag"] = "Signature"
+            data["version"] = buf.ru8()
+
+            match data["version"]:
+                case 4:
+                    data["type"] = unraw(
+                        buf.ru8(),
+                        1,
+                        {
+                            0x00: "Signature of a binary document",
+                            0x01: "Signature of a canonical text document",
+                            0x10:
+                            "Generic certification of a User ID and Public-Key packet",  # noqa: E501
+                            0x11:
+                            "Persona certification of a User ID and Public-Key packet",  # noqa: E501
+                            0x12:
+                            "Casual certification of a User ID and Public-Key packet",  # noqa: E501
+                            0x13:
+                            "Positive certification of a User ID and Public-Key packet",  # noqa: E501
+                            0x18: "Subkey binding signature",
+                            0x19: "Primary key binding signature",
+                            0x1F: "Signature directly on a key",
+                            0x20: "Key revocation signature",
+                            0x28: "Subkey revocation signature",
+                            0x30: "Certification revocation signature",
+                            0x40: "Timestamp signature",
+                            0x50: "Third-party confirmation signature"
+                        })
+
+                    algorithm = buf.ru8()
+                    data["public-key-algorithm"] = unraw(
+                        algorithm, 1, {
+                            1: "RSA",
+                            2: "RSA",
+                            3: "RSA",
+                        })
+
+                    data["hash-algorithm"] = unraw(buf.ru8(), 1, {8: "SHA256"})
+
+                    buf.pushunit()
+                    buf.setunit(buf.ru16())
+
+                    data["hashed-subpackets"] = []
+                    while buf.unit > 0:
+                        data["hashed-subpackets"].append(
+                            read_pgp_subpacket(buf))
+
+                    buf.skipunit()
+                    buf.popunit()
+
+                    buf.pushunit()
+                    buf.setunit(buf.ru16())
+
+                    data["unhashed-subpackets"] = []
+                    while buf.unit > 0:
+                        data["unhashed-subpackets"].append(
+                            read_pgp_subpacket(buf))
+
+                    buf.skipunit()
+                    buf.popunit()
+
+                    data["hash-prefix"] = buf.rh(2)
+
+                    match algorithm:
+                        case 1 | 2 | 3:
+                            data["signature"] = {"d": read_pgp_mpi(buf)}
+
+                case _:
+                    packet["unknown"] = True
+        case 0x06 | 0x0e:
+            packet["tag"] = "Public-key" if tag == 0x06 else "Public-Subkey"
+            data["version"] = buf.ru8()
+
+            match data["version"]:
+                case 4:
+                    data["created-at"] = datetime.fromtimestamp(
+                        buf.ru32(), UTC).isoformat()
+                    algorithm = buf.ru8()
+
+                    match algorithm:
+                        case 0x01 | 0x02 | 0x03:
+                            data["algorithm"] = "RSA"
+                            data["key"] = {
+                                "n": read_pgp_mpi(buf),
+                                "e": read_pgp_mpi(buf)
+                            }
+
+                        case 0x16:
+                            data["algorithm"] = "EdDSALegacy"
+                            data["key"] = {
+                                "oid": read_oid(buf,
+                                                buf.ru8() - 1),
+                                "point": read_pgp_mpi(buf)
+                            }
+                        case _:
+                            data[
+                                "algorithm"] = f"Unknown (0x{hex(algorithm)[2:].zfill(2)})"  # noqa: E501
+                            packet["unknown"] = True
+
+                case _:
+                    packet["unknown"] = True
+        case 0x0d:
+            packet["tag"] = "User ID"
+            data["user-id"] = buf.rs(buf.unit)
+        case _:
+            packet["tag"] = f"Unknown (0x{hex(tag)[2:].zfill(2)})"
+            packet["unknown"] = True
+
+    buf.skipunit()
+    buf.popunit()
+
+    return packet
+
+
+def read_pgp(buf):
+    buf.pushunit()
+    buf.setunit(buf.available() if buf.unit is None else buf.unit)
+
+    data = _read_pgp(buf)
+
+    buf.popunit()
+
+    return data

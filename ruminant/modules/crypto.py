@@ -61,3 +61,38 @@ class PemModule(module.RuminantModule):
         meta["data"] = utils.read_der(buf.Buf(base64.b64decode(content)))
 
         return meta
+
+
+@module.register
+class PpgModule(module.RuminantModule):
+
+    def identify(buf):
+        return buf.peek(36) == b"-----BEGIN PGP PUBLIC KEY BLOCK-----" or (buf.pu8() in (0x85, 0x89) and buf.peek(4)[3] in (0x03, 0x04))
+
+    def chew(self):
+        meta = {}
+        meta["type"] = "pgp"
+
+        if self.buf.peek(1) == b"-":
+            self.buf.skip(36)
+
+            content = b""
+            while True:
+                line = self.buf.rl()
+                if line == b"-----END PGP PUBLIC KEY BLOCK-----":
+                    break
+
+                content += line
+
+            while self.buf.peek(1) in (b"\r", b"\n"):
+                self.buf.skip(1)
+
+            fd = buf.Buf(base64.b64decode(content))
+        else:
+            fd = self.buf
+
+        meta["data"] = []
+        while fd.available() > 0:
+            meta["data"].append(utils.read_pgp(fd))
+
+        return meta
