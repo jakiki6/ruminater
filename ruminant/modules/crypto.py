@@ -88,6 +88,10 @@ class PgpModule(module.RuminantModule):
             while self.buf.peek(1) in (b"\r", b"\n"):
                 self.buf.skip(1)
 
+            if b"=" in content:
+                while content[-1] != b"="[0]:
+                    content = content[:-1]
+
             fd = buf.Buf(base64.b64decode(content))
         else:
             fd = self.buf

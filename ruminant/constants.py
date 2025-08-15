@@ -483,7 +483,43 @@ PGP_HASHES = {
 }
 
 PGP_PUBLIC_KEYS = {
-    1: "RSA",
-    2: "RSA",
-    3: "RSA",
+    1: "RSA (Encrypt or Sign)",
+    2: "RSA (Encrypt-only)",
+    3: "RSA (Sign-only)",
+    16: "ElGamal",
+    17: "DSA",
+    18: "ECDH",
+    19: "ECDSA",
+    22: "EdDSALegacy"
+}
+
+PGP_CIPHERS = {
+    0: "Unencrypted",
+    1: "IDEA",
+    2: "3DES",
+    3: "CAST5",
+    4: "Blowfish",
+    7: "AES-128",
+    8: "AES-192",
+    9: "AES-256",
+    10: "Twofish-256"
+}
+
+PGP_AEADS = {1: "EAX", 2: "OCB", 3: "GCM"}
+
+PGP_SIGNATURE_TYPES = {
+    0x00: "Signature of a binary document",
+    0x01: "Signature of a canonical text document",
+    0x10: "Generic certification of a User ID and Public-Key packet",
+    0x11: "Persona certification of a User ID and Public-Key packet",
+    0x12: "Casual certification of a User ID and Public-Key packet",
+    0x13: "Positive certification of a User ID and Public-Key packet",
+    0x18: "Subkey binding signature",
+    0x19: "Primary key binding signature",
+    0x1F: "Signature directly on a key",
+    0x20: "Key revocation signature",
+    0x28: "Subkey revocation signature",
+    0x30: "Certification revocation signature",
+    0x40: "Timestamp signature",
+    0x50: "Third-party confirmation signature"
 }
