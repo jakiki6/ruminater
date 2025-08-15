@@ -502,7 +502,10 @@ PGP_CIPHERS = {
     7: "AES-128",
     8: "AES-192",
     9: "AES-256",
-    10: "Twofish-256"
+    10: "Twofish-256",
+    11: "Camellia-128",
+    12: "Camellia-192",
+    13: "Camellia-256"
 }
 
 PGP_AEADS = {1: "EAX", 2: "OCB", 3: "GCM"}

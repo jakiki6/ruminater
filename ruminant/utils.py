@@ -355,6 +355,10 @@ def read_pgp_subpacket(buf):
         case 0x04:
             packet["type"] = "Expiration Time"
             data["expiration-offset"] = buf.ru32()
+        case 0x05:
+            packet["type"] = "Trust Signature"
+            data["depth"] = buf.ru8()
+            data["trust"] = buf.ru8()
         case 0x09:
             packet["type"] = "Key Expiration Time"
             data["expiration-offset"] = buf.ru32()
