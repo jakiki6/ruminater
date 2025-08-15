@@ -1,3 +1,5 @@
+* new file formats
+  * DJVU
 * ZIP family detection
 * more consistent naming convention
 * backends (process the json blob)
