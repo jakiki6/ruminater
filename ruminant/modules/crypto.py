@@ -67,21 +67,42 @@ class PemModule(module.RuminantModule):
 class PgpModule(module.RuminantModule):
 
     def identify(buf):
-        return buf.peek(36) == b"-----BEGIN PGP PUBLIC KEY BLOCK-----" or (
-            buf.pu8() in (0x85, 0x89) and buf.peek(4)[3] in (0x03, 0x04))
+        with buf:
+            if buf.pu8() in (0x85, 0x89) and buf.peek(4)[3] in (0x03, 0x04):
+                return True
+
+            return buf.rl().startswith(b"-----BEGIN PGP ")
 
     def chew(self):
         meta = {}
         meta["type"] = "pgp"
 
         if self.buf.peek(1) == b"-":
-            self.buf.skip(36)
+            if self.buf.rl() == b"-----BEGIN PGP SIGNED MESSAGE-----":
+                message = b""
+
+                meta["message-hash"] = self.buf.rl().split(b": ")[1].decode(
+                    "utf-8")
+                self.buf.rl()
+
+                while True:
+                    line = self.buf.rl()
+
+                    if line == b"-----BEGIN PGP SIGNATURE-----":
+                        break
+
+                    message += line + b"\n"
+
+                meta["message"] = utils.decode(message).split("\n")[:-1]
 
             content = b""
             while True:
                 line = self.buf.rl()
-                if line == b"-----END PGP PUBLIC KEY BLOCK-----":
+                if line.startswith(b"-----END PGP "):
                     break
+
+                if line.startswith(b"Comment: "):
+                    continue
 
                 content += line
 

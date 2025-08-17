@@ -1047,6 +1047,9 @@ class IsoModule(module.RuminantModule):
         elif typ == "dfLa":
             self.read_version(atom)
             atom["data"]["content"] = chew(b"fLaC" + self.buf.readunit())
+        elif typ == "ID32":
+            self.buf.skip(6)
+            atom["data"]["content"] = chew(self.buf.readunit())
         elif typ == "nmhd":
             self.read_version(atom)
         elif typ in ("samr", "sawb", "mp4a", "drms", "alac", "owma", "ac-3",

@@ -8,6 +8,7 @@ import os
 import re
 
 sys.set_int_max_str_digits(0)
+sys.setrecursionlimit(1000000)
 
 has_tqdm = False
 print_filenames = False

@@ -88,11 +88,17 @@ class ZipModule(module.RuminantModule):
 class RIFFModule(module.RuminantModule):
 
     def identify(buf):
-        return buf.peek(4) == b"RIFF"
+        return buf.peek(4) in (b"RIFF", b"AT&T")
 
     def chew(self):
         meta = {}
-        meta["type"] = "riff"
+        meta["type"] = {b"RIFF": "riff", b"AT&T": "djvu"}[self.buf.peek(4)]
+
+        if meta["type"] == "djvu":
+            self.buf.skip(4)
+            self.le = False
+        else:
+            self.le = True
 
         self.strh_type = None
         meta["data"] = self.read_chunk()
@@ -105,7 +111,7 @@ class RIFFModule(module.RuminantModule):
         typ = self.buf.rs(4)
         chunk["type"] = typ
         chunk["offset"] = self.buf.tell() - 4
-        length = self.buf.ru32l()
+        length = self.buf.ru32l() if self.le else self.buf.ru32()
         chunk["length"] = length
 
         self.buf.pushunit()
@@ -310,7 +316,7 @@ class RIFFModule(module.RuminantModule):
             case "ICMT" | "ISFT":
                 chunk["data"]["comment"] = self.buf.readunit().decode(
                     "utf-8").rstrip("\x00")
-            case "RIFF" | "LIST":
+            case "RIFF" | "LIST" | "FORM":
                 chunk["data"]["type"] = self.buf.rs(4)
                 chunk["data"]["chunks"] = []
                 while self.buf.unit:

@@ -28,3 +28,6 @@ This is a list of useful resources.
 # PGP
 * https://www.rfc-editor.org/rfc/rfc4880
 * https://www.rfc-editor.org/rfc/rfc9580
+
+# ID3v2
+* https://id3.org/id3v2.4.0-structure
