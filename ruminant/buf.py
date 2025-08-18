@@ -103,7 +103,7 @@ class Buf(object):
 
     def rl(self):
         line = b""
-        while True:
+        while self.unit:
             c = self.read(1)
             if len(c) == 0:
                 break
