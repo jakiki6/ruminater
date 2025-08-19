@@ -78,12 +78,12 @@ class IsoModule(module.RuminantModule):
                                and self.buf.peek(8)[4:8] == b"data"):
             self.read_more(atom)
         elif typ in ("ftyp", "styp"):
-            atom["data"]["major_brand"] = self.buf.rs(4, "utf-8")
-            atom["data"]["minor_version"] = self.buf.ru32()
-            atom["data"]["compatible_brands"] = []
+            atom["data"]["major-brand"] = self.buf.rs(4, "utf-8")
+            atom["data"]["minor-version"] = self.buf.ru32()
+            atom["data"]["compatible-brands"] = []
 
             while self.buf.unit > 0:
-                atom["data"]["compatible_brands"].append(
+                atom["data"]["compatible-brands"].append(
                     self.buf.rs(4, "utf-8"))
         elif typ == "uuid":
             atom["data"]["uuid"] = str(uuid.UUID(bytes=self.buf.read(16)))
@@ -108,9 +108,9 @@ class IsoModule(module.RuminantModule):
                 duration = self.buf.ru64()
 
             if version in (0, 1):
-                atom["data"]["creation_time"] = utils.mp4_time_to_iso(
+                atom["data"]["creation-time"] = utils.mp4_time_to_iso(
                     creation_time)
-                atom["data"]["modification_time"] = utils.mp4_time_to_iso(
+                atom["data"]["modification-time"] = utils.mp4_time_to_iso(
                     modification_time)
                 atom["data"]["timescale"] = timescale
                 atom["data"]["duration"] = duration
@@ -119,8 +119,8 @@ class IsoModule(module.RuminantModule):
                 atom["data"]["volume"] = self.buf.rfp16()
                 atom["data"]["reserved"] = self.buf.rh(10)
                 atom["data"]["matrix"] = self.buf.rh(36)
-                atom["data"]["pre_defined"] = self.buf.rh(24)
-                atom["data"]["next_track_ID"] = self.buf.ru32()
+                atom["data"]["pre-defined"] = self.buf.rh(24)
+                atom["data"]["next-track-id"] = self.buf.ru32()
         elif typ == "tkhd":
             version = self.buf.ru8()
             atom["data"]["version"] = version
@@ -147,17 +147,17 @@ class IsoModule(module.RuminantModule):
                 duration = self.buf.ru64()
 
             if version in (0, 1):
-                atom["data"]["creation_time"] = utils.mp4_time_to_iso(
+                atom["data"]["creation-time"] = utils.mp4_time_to_iso(
                     creation_time)
-                atom["data"]["modification_time"] = utils.mp4_time_to_iso(
+                atom["data"]["modification-time"] = utils.mp4_time_to_iso(
                     modification_time)
-                atom["data"]["track_ID"] = track_ID
+                atom["data"]["track-id"] = track_ID
                 atom["data"]["reserved1"] = reserved1
                 atom["data"]["duration"] = duration
 
                 atom["data"]["reserved2"] = self.buf.rh(8)
                 atom["data"]["layer"] = self.buf.ru16()
-                atom["data"]["alternate_group"] = self.buf.ru16()
+                atom["data"]["alternate-group"] = self.buf.ru16()
                 atom["data"]["volume"] = self.buf.rfp16()
                 atom["data"]["reserved3"] = self.buf.rh(2)
                 atom["data"]["matrix"] = self.buf.rh(36)
@@ -169,7 +169,7 @@ class IsoModule(module.RuminantModule):
             version = self.read_version(atom)
             atom["data"]["entries"] = []
             entry_count = self.buf.ru32()
-            atom["data"]["entry_count"] = entry_count
+            atom["data"]["entry-count"] = entry_count
 
             for i in range(0, entry_count):
                 if version == 0:
@@ -181,8 +181,8 @@ class IsoModule(module.RuminantModule):
 
                 if version in (0, 1):
                     entry = {}
-                    entry["segment_duration"] = segment_duration
-                    entry["media_time"] = media_time
+                    entry["segment-duration"] = segment_duration
+                    entry["media-time"] = media_time
                     entry["media_rate_integer"] = self.buf.ru16()
                     entry["media_rate_fraction"] = self.buf.ru16()
 
@@ -202,20 +202,20 @@ class IsoModule(module.RuminantModule):
                 duration = self.buf.ru64()
 
             if version in (0, 1):
-                atom["data"]["creation_time"] = utils.mp4_time_to_iso(
+                atom["data"]["creation-time"] = utils.mp4_time_to_iso(
                     creation_time)
-                atom["data"]["modification_time"] = utils.mp4_time_to_iso(
+                atom["data"]["modification-time"] = utils.mp4_time_to_iso(
                     modification_time)
                 atom["data"]["timescale"] = timescale
                 atom["data"]["duration"] = duration
 
                 atom["data"]["language"] = mp4_decode_language(
                     self.buf.read(2))
-                atom["data"]["pre_defined"] = self.buf.rh(2)
+                atom["data"]["pre-defined"] = self.buf.rh(2)
         elif typ == "hdlr":
             self.read_version(atom)
-            atom["data"]["pre_defined"] = self.buf.rh(4)
-            atom["data"]["handler_type"] = self.buf.rs(4)
+            atom["data"]["pre-defined"] = self.buf.rh(4)
+            atom["data"]["handler-type"] = self.buf.rs(4)
             atom["data"]["reserved"] = self.buf.rh(12)
             atom["data"]["name"] = self.buf.readunit().decode("utf-8").rstrip(
                 "\x00")
@@ -240,26 +240,26 @@ class IsoModule(module.RuminantModule):
         elif typ in ("avc1", "hvc1", "vp09", "encv"):
             atom["data"]["reserved1"] = self.buf.rh(6)
             atom["data"]["data_reference_index"] = self.buf.ru16()
-            atom["data"]["pre_defined1"] = self.buf.rh(2)
+            atom["data"]["pre-defined1"] = self.buf.rh(2)
             atom["data"]["reserved2"] = self.buf.rh(2)
-            atom["data"]["pre_defined2"] = self.buf.rh(12)
+            atom["data"]["pre-defined2"] = self.buf.rh(12)
             atom["data"]["width"] = self.buf.ru16()
             atom["data"]["height"] = self.buf.ru16()
             atom["data"]["horizresolution"] = self.buf.rfp32()
             atom["data"]["vertresolution"] = self.buf.rfp32()
             atom["data"]["reserved3"] = self.buf.rh(4)
-            atom["data"]["frame_count"] = self.buf.ru16()
+            atom["data"]["frame-count"] = self.buf.ru16()
             name_length = self.buf.ru8()
             name = self.buf.read(31)
             atom["data"]["compressorname"] = name[:name_length].decode("utf-8")
             atom["data"]["depth"] = self.buf.ru16()
-            atom["data"]["pre_defined3"] = self.buf.rh(2)
+            atom["data"]["pre-defined3"] = self.buf.rh(2)
 
             self.read_more(atom)
         elif typ == "avcC":
             atom["data"]["configurationVersion"] = self.buf.ru8()
             atom["data"]["AVCProfileIndication"] = self.buf.ru8()
-            atom["data"]["profile_compatibility"] = self.buf.ru8()
+            atom["data"]["profile-compatibility"] = self.buf.ru8()
             atom["data"]["AVCLevelIndication"] = self.buf.ru8()
             atom["data"]["lengthSizeMinusOne"] = self.buf.ru8()
 
@@ -279,20 +279,20 @@ class IsoModule(module.RuminantModule):
                 atom["data"]["pictureParameterSets"].append(
                     self.buf.rh(length))
         elif typ == "colr":
-            atom["data"]["color_type"] = self.buf.rs(4)
+            atom["data"]["color-type"] = self.buf.rs(4)
 
-            match atom["data"]["color_type"]:
+            match atom["data"]["color-type"]:
                 case "nclc":
-                    atom["data"]["color_primaries"] = self.buf.ru16()
-                    atom["data"]["transfer_characteristics"] = self.buf.ru16()
-                    atom["data"]["matrix_coefficients"] = self.buf.ru16()
+                    atom["data"]["color-primaries"] = self.buf.ru16()
+                    atom["data"]["transfer-characteristics"] = self.buf.ru16()
+                    atom["data"]["matrix-coefficients"] = self.buf.ru16()
                 case "rICC" | "prof":
                     atom["data"]["icc_profile_data"] = chew(
                         b"ICC_PROFILE\x00\x00\x00" + self.buf.readunit())
                 case "nclx":
-                    atom["data"]["color_primaries"] = self.buf.ru16()
-                    atom["data"]["transfer_characteristics"] = self.buf.ru16()
-                    atom["data"]["matrix_coefficients"] = self.buf.ru16()
+                    atom["data"]["color-primaries"] = self.buf.ru16()
+                    atom["data"]["transfer-characteristics"] = self.buf.ru16()
+                    atom["data"]["matrix-coefficients"] = self.buf.ru16()
                     full_range_flag = self.buf.ru8()
                     atom["data"]["full_range_flag"] = {
                         "raw": full_range_flag,
@@ -302,50 +302,50 @@ class IsoModule(module.RuminantModule):
             atom["data"]["hSpacing"] = self.buf.ru32()
             atom["data"]["vSpacing"] = self.buf.ru32()
         elif typ == "btrt":
-            atom["data"]["buffer_size"] = self.buf.ru32()
-            atom["data"]["max_bitrate"] = self.buf.ru32()
-            atom["data"]["avg_bitrate"] = self.buf.ru32()
+            atom["data"]["buffer-size"] = self.buf.ru32()
+            atom["data"]["max-bitrate"] = self.buf.ru32()
+            atom["data"]["avg-bitrate"] = self.buf.ru32()
         elif typ == "stts":
             self.read_version(atom)
             entry_count = self.buf.ru32()
-            atom["data"]["entry_count"] = entry_count
+            atom["data"]["entry-count"] = entry_count
         elif typ == "stss":
             self.read_version(atom)
             entry_count = self.buf.ru32()
-            atom["data"]["entry_count"] = entry_count
+            atom["data"]["entry-count"] = entry_count
         elif typ == "ctts":
             self.read_version(atom)
             entry_count = self.buf.ru32()
-            atom["data"]["entry_count"] = entry_count
+            atom["data"]["entry-count"] = entry_count
         elif typ == "stsc":
             self.read_version(atom)
             entry_count = self.buf.ru32()
-            atom["data"]["entry_count"] = entry_count
+            atom["data"]["entry-count"] = entry_count
         elif typ == "stsz":
             self.read_version(atom)
-            atom["data"]["sample_size"] = self.buf.ru32()
-            atom["data"]["sample_count"] = self.buf.ru32()
+            atom["data"]["sample-size"] = self.buf.ru32()
+            atom["data"]["sample-count"] = self.buf.ru32()
         elif typ == "stco":
             self.read_version(atom)
             entry_count = self.buf.ru32()
-            atom["data"]["entry_count"] = entry_count
+            atom["data"]["entry-count"] = entry_count
         elif typ == "sgpd":
             version = self.buf.ru8()
             atom["data"]["version"] = version
             flags = self.buf.ru24()
             atom["data"]["flags"] = {
                 "raw": flags,
-                "variable_length": bool(flags & 1),
+                "variable-length": bool(flags & 1),
             }
 
-            atom["data"]["grouping_type"] = self.buf.rs(4)
+            atom["data"]["grouping-type"] = self.buf.rs(4)
 
             default_length = 0
             if version == 1 and flags & 1 == 0:
                 default_length = self.buf.ru32()
 
             entry_count = self.buf.ru32()
-            atom["data"]["entry_count"] = entry_count
+            atom["data"]["entry-count"] = entry_count
 
             atom["data"]["entries"] = []
             for i in range(0, entry_count):
@@ -356,15 +356,15 @@ class IsoModule(module.RuminantModule):
                 atom["data"]["entries"].append(self.buf.rh(length))
         elif typ == "sbgp":
             self.read_version(atom)
-            atom["data"]["grouping_type"] = self.buf.rs(4)
+            atom["data"]["grouping-type"] = self.buf.rs(4)
 
             entry_count = self.buf.ru32()
-            atom["data"]["entry_count"] = entry_count
+            atom["data"]["entry-count"] = entry_count
 
             atom["data"]["entries"] = []
             for i in range(0, entry_count):
                 atom["data"]["entries"].append({
-                    "sample_count":
+                    "sample-count":
                     self.buf.ru32(),
                     "group_description_index":
                     self.buf.ru32(),
@@ -394,36 +394,36 @@ class IsoModule(module.RuminantModule):
         elif typ == "co64":
             self.read_version(atom)
             entry_count = self.buf.ru32()
-            atom["data"]["entry_count"] = entry_count
+            atom["data"]["entry-count"] = entry_count
         elif typ == "sdtp":
             self.read_version(atom)
             atom["data"]["sample_dep_type_count"] = len(self.buf.readunit())
         elif typ == "vpcC":
             atom["data"]["profile"] = self.buf.ru8()
             atom["data"]["level"] = self.buf.ru8()
-            atom["data"]["bit_depth"] = self.buf.ru8()
-            atom["data"]["chroma_subsampling"] = self.buf.ru8()
+            atom["data"]["bit-depth"] = self.buf.ru8()
+            atom["data"]["chroma-subsampling"] = self.buf.ru8()
             atom["data"]["video_full_range_flag"] = self.buf.ru8()
             atom["data"]["reserved"] = self.buf.rh(3)
         elif typ == "trex":
             self.read_version(atom)
-            atom["data"]["track_ID"] = self.buf.ru32()
+            atom["data"]["track-id"] = self.buf.ru32()
             atom["data"]["default_sample_description_index"] = self.buf.ru32()
             atom["data"]["default_sample_duration"] = self.buf.ru32()
             atom["data"]["default_sample_size"] = self.buf.ru32()
             atom["data"]["default_sample_flags"] = self.buf.ru32()
         elif typ == "sidx":
             version = self.read_version(atom)
-            atom["data"]["reference_ID"] = self.buf.ru32()
+            atom["data"]["reference-id"] = self.buf.ru32()
             atom["data"]["earliest_presentation_time"] = int.from_bytes(
                 self.buf.read(4 if version == 0 else 8), "big")
-            atom["data"]["first_offset"] = int.from_bytes(
+            atom["data"]["first-offset"] = int.from_bytes(
                 self.buf.read(4 if version == 0 else 8), "big")
             atom["data"]["reserved"] = self.buf.rh(2)
-            atom["data"]["reference_count"] = self.buf.ru16()
+            atom["data"]["reference-count"] = self.buf.ru16()
         elif typ == "mfhd":
             self.read_version(atom)
-            atom["data"]["sequence_number"] = self.buf.ru32()
+            atom["data"]["sequence-number"] = self.buf.ru32()
         elif typ == "tfhd":
             version = self.buf.ru8()
             atom["data"]["version"] = version
@@ -435,10 +435,10 @@ class IsoModule(module.RuminantModule):
                 "default_sample_duration_present": bool(flags & 8),
                 "default_sample_size_present": bool(flags & 16),
                 "default_sample_flags_present": bool(flags & 32),
-                "no_samples": bool(flags & 65536),
+                "no-samples": bool(flags & 65536),
                 "base_is_moof": bool(flags & 131072),
             }
-            atom["data"]["track_ID"] = self.buf.ru32()
+            atom["data"]["track-id"] = self.buf.ru32()
 
             if atom["data"]["flags"]["base_data_offset_present"]:
                 atom["data"]["base_data_offset"] = self.buf.ru64()
@@ -467,12 +467,12 @@ class IsoModule(module.RuminantModule):
                 "sample_flags_present": bool(flags & 1024),
                 "sample_composition_time_offsets_present": bool(flags & 2048),
             }
-            atom["data"]["sample_count"] = self.buf.ru32()
+            atom["data"]["sample-count"] = self.buf.ru32()
         elif typ == "desc":
             atom["data"]["descriptor"] = self.buf.readunit().hex()
         elif typ == "loci":
             self.read_version(atom)
-            atom["data"]["language_code"] = self.buf.ru16()
+            atom["data"]["language-code"] = self.buf.ru16()
             atom["data"]["reserved"] = self.buf.rh(2)
             atom["data"]["longitude"] = self.buf.rfp32()
             atom["data"]["latitude"] = self.buf.rfp32()
@@ -482,20 +482,29 @@ class IsoModule(module.RuminantModule):
         elif typ == "hvcC":
             version = self.buf.ru8()
             atom["data"]["version"] = version
-            atom["data"]["profile_space,tier_flag,profile_idc"] = (
-                self.buf.ru8())
+
+            temp = self.buf.ru8()
+            atom["data"]["general_profile_space"] = (temp >> 6) & 0x03
+            atom["data"]["general_tier_flag"] = (temp >> 5) & 0x01
+            atom["data"]["general_profile_idc"] = temp & 0x1f
+
             atom["data"]["profile_compatibility_flags"] = self.buf.ru32()
             atom["data"]["constraint_indicator_flags"] = int.from_bytes(
                 self.buf.read(6), "big")
-            atom["data"]["level_idc"] = self.buf.ru8()
+            atom["data"]["level-idc"] = self.buf.ru8()
             atom["data"]["min_spatial_segmentation_idc"] = self.buf.ru16()
             atom["data"]["parallelismType"] = self.buf.ru8()
             atom["data"]["chromaFormat"] = self.buf.ru8()
             atom["data"]["bitDepthLumaMinus8"] = self.buf.ru8()
             atom["data"]["bitDepthChromaMinus8"] = self.buf.ru8()
             atom["data"]["avgFrameRate"] = self.buf.rfp16()
-            atom["data"]["constantFrameRate,numTemporalLayers"] = (
-                self.buf.ru8())
+
+            temp = self.buf.ru8()
+            atom["data"]["constantFrameRate"] = (temp >> 6) & 0x03
+            atom["data"]["numTemporalLayers"] = (temp >> 3) & 0x07
+            atom["data"]["temporalIdNested"] = (temp >> 2) & 0x01
+            atom["data"]["lengthSizeMinusOne"] = temp & 0x03
+
             atom["data"]["numOfArrays"] = self.buf.ru8()
 
             atom["data"]["arrays"] = []
@@ -516,7 +525,7 @@ class IsoModule(module.RuminantModule):
         elif typ == "keys":
             self.read_version(atom)
             entry_count = self.buf.ru32()
-            atom["data"]["entry_count"] = entry_count
+            atom["data"]["entry-count"] = entry_count
 
             atom["data"]["entries"] = []
             for i in range(0, entry_count):
@@ -1174,6 +1183,17 @@ class IsoModule(module.RuminantModule):
                 }
                 seis.append(sei)
 
+    def parse_mdat_hvec(self, atoms):
+        mdat = None
+        for atom in atoms:
+            if atom["type"] == "mdat":
+                mdat = atom
+
+        if mdat is None:
+            return
+
+        mdat["data"]["type"] = "hvec"
+
     def parse_mdat_avc1(self, atoms):
         mdat = None
         for atom in atoms:
@@ -1190,7 +1210,7 @@ class IsoModule(module.RuminantModule):
             return
 
         self.buf.seek(mdat["offset"])
-        self.buf.setunit(atom["length"])
+        self.buf.setunit(mdat["length"])
 
         self.buf.skip(8)
 
@@ -1216,13 +1236,32 @@ class IsoModule(module.RuminantModule):
 
     def parse_mdat(self, atoms):
         stream_type = self.find_stream_type(atoms)
-        if stream_type is None:
-            return
 
         try:
             match stream_type:
                 case "avc1":
                     self.parse_mdat_avc1(atoms)
+
+
+#                case "hvec":
+#                    self.parse_mdat_hvec(atoms)
+                case _:
+                    for atom in atoms:
+                        if atom["type"] == "mdat":
+                            atom["data"][
+                                "type"] = stream_type if stream_type is not None else "unknown"  # noqa: E501
+                            atom["data"]["unknown"] = True
+
+                            self.buf.seek(atom["offset"])
+
+                            self.buf.pushunit()
+                            self.buf.setunit(atom["length"])
+                            self.buf.skip(8)
+
+                            with self.buf.subunit():
+                                atom["data"]["raw"] = chew(self.buf)
+
+                            self.buf.popunit()
         except Exception:
             # sei parsing can fail with cenc extensions
             pass

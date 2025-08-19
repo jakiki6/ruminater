@@ -135,7 +135,7 @@ class PdfModule(module.RuminantModule):
         meta["type"] = "pdf"
 
         meta["version"] = (self.buf.rl().decode("latin-1").split("-")[1])
-        meta["binary_comment"] = self.buf.rl().hex()
+        meta["binary-comment"] = self.buf.rl().hex()
 
         self.buf.seek(0, 2)
         while self.buf.peek(9) != b"startxref":
