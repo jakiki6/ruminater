@@ -2,7 +2,8 @@ import sys
 import os
 
 sys.path.insert(0, os.path.dirname(__file__))
-import oids
+import oids  # noqa: E402
+
 
 def append_unknowns(root, todo, base=[]):
     for key, value in root.items():
@@ -11,26 +12,23 @@ def append_unknowns(root, todo, base=[]):
 
         append_unknowns(value["children"], todo, base + [key])
 
+
 if len(sys.argv) > 2:
     todo = sys.argv[1:]
 else:
     todo = []
     append_unknowns(oids.OIDS, todo)
 
+
 def insert(root, oid, name):
     if len(oid) == 1:
-        root[oid] = {
-            "name": name,
-            "children": {}
-        }
+        root[oid] = {"name": name, "children": {}}
     else:
         if oid not in root:
-            root[oid] = {
-                "name": name,
-                "children": {}
-            }
+            root[oid] = {"name": name, "children": {}}
 
         insert(root[oid]["children"], oid[1:], name)
+
 
 for oid in todo:
     name = input(f"{'.'.join(str(x) for x in oid)}: ")
@@ -40,12 +38,14 @@ for oid in todo:
 
     insert(oids.OIDS, oid, name)
 
+
 def walk(root, file, base):
     if root["name"] != "?":
         print(f"{'.'.join(str(x) for x in base)}: {root['name']}", file=file)
 
     for key in sorted(root["children"].keys()):
         walk(root["children"][key], file, base + [key])
+
 
 with open(os.path.join(os.path.dirname(__file__), "oids.txt"), "w") as file:
     for key in sorted(oids.OIDS.keys()):

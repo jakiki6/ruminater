@@ -313,6 +313,26 @@ class RIFFModule(module.RuminantModule):
                     field["valid-y-offset"] = self.buf.ru32l()
 
                     chunk["data"]["fields"].append(field)
+            case "INFO":
+                chunk["data"]["width"] = self.buf.ru16()
+                chunk["data"]["height"] = self.buf.ru16()
+                chunk["data"]["minor-version"] = self.buf.ru8()
+                chunk["data"]["major-version"] = self.buf.ru8()
+                chunk["data"]["dpi"] = self.buf.ru16()
+                chunk["data"]["gamma"] = self.buf.ru8() / 10
+
+                flags = self.buf.ru8()
+                chunk["data"]["flags"] = {
+                    "raw": flags,
+                    "rotation": {
+                        1: "0 degrees",
+                        6: "90 degrees counter clockwise",
+                        2: "180 degrees",
+                        5: "90 degrees clockwise"
+                    }.get(flags & 0x07, f"Unknown ({flags & 0x07})")
+                }
+            case "INCL":
+                chunk["data"]["id"] = utils.decode(self.buf.readunit()).rstrip("\x00")
             case "ICMT" | "ISFT":
                 chunk["data"]["comment"] = self.buf.readunit().decode(
                     "utf-8").rstrip("\x00")
