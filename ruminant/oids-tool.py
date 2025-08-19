@@ -13,8 +13,8 @@ def append_unknowns(root, todo, base=[]):
         append_unknowns(value["children"], todo, base + [key])
 
 
-if len(sys.argv) > 2:
-    todo = sys.argv[1:]
+if len(sys.argv) > 1:
+    todo = [[int(y) for y in x.split(".")] for x in sys.argv[1:]]
 else:
     todo = []
     append_unknowns(oids.OIDS, todo)
@@ -22,12 +22,12 @@ else:
 
 def insert(root, oid, name):
     if len(oid) == 1:
-        root[oid] = {"name": name, "children": {}}
+        root[oid[0]] = {"name": name, "children": {}}
     else:
-        if oid not in root:
-            root[oid] = {"name": name, "children": {}}
+        if oid[0] not in root:
+            root[oid[0]] = {"name": "?", "children": {}}
 
-        insert(root[oid]["children"], oid[1:], name)
+        insert(root[oid[0]]["children"], oid[1:], name)
 
 
 for oid in todo:
