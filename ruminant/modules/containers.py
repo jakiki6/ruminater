@@ -332,7 +332,8 @@ class RIFFModule(module.RuminantModule):
                     }.get(flags & 0x07, f"Unknown ({flags & 0x07})")
                 }
             case "INCL":
-                chunk["data"]["id"] = utils.decode(self.buf.readunit()).rstrip("\x00")
+                chunk["data"]["id"] = utils.decode(
+                    self.buf.readunit()).rstrip("\x00")
             case "ICMT" | "ISFT":
                 chunk["data"]["comment"] = self.buf.readunit().decode(
                     "utf-8").rstrip("\x00")
