@@ -172,9 +172,35 @@ def read_der(buf):
         case 0x03:
             data["type"] = "BIT STRING"
             skip = buf.ru8()
-            data["value"] = bin(
-                int.from_bytes(buf.readunit()) >> skip)[2:].zfill(length * 8 -
-                                                                  skip)
+            bit_length = length * 8 - skip
+
+            if skip % 8 == 0:
+                nested = True
+                with buf:
+                    try:
+                        if buf.ru8() & 0x0f == 0x0f:
+                            c = 0x80
+                            while c & 0x80:
+                                c = buf.ru8()
+
+                        length = buf.ru8()
+                        if length & 0x80:
+                            length = int.from_bytes(buf.read(length & 0x7f),
+                                                    "big")
+
+                        assert buf.unit == length
+                    except Exception:
+                        nested = False
+
+                if nested:
+                    with buf.subunit():
+                        data["value"] = read_der(buf)
+                else:
+                    data["value"] = bin(int.from_bytes(
+                        buf.readunit()))[2:].zfill(bit_length)
+            else:
+                data["value"] = bin(int.from_bytes(buf.readunit()) >> skip
+                                    )[2:].zfill(bit_length)
         case 0x04:
             data["type"] = "OCTET STRING"
 
