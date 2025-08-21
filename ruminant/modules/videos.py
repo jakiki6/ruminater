@@ -1241,8 +1241,6 @@ class IsoModule(module.RuminantModule):
             match stream_type:
                 case "avc1":
                     self.parse_mdat_avc1(atoms)
-
-
 #                case "hvec":
 #                    self.parse_mdat_hvec(atoms)
                 case _:
