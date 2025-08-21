@@ -951,6 +951,8 @@ class JPEGModule(module.RuminantModule):
                 self.buf.setunit(0)
 
                 chunk["data"]["image-length"] = self.buf.tell() - image_length
+            elif typ == 0xfe:
+                chunk["data"]["comment"] = utils.decode(self.buf.readunit())
             elif typ == 0xd9:
                 should_break = True
 
