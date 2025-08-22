@@ -334,6 +334,60 @@ class RIFFModule(module.RuminantModule):
             case "INCL":
                 chunk["data"]["id"] = utils.decode(
                     self.buf.readunit()).rstrip("\x00")
+            case "fact":
+                chunk["data"]["sample-count"] = self.buf.ru32l()
+            case "cue ":
+                chunk["data"]["cues"] = []
+
+                for i in range(0, self.buf.ru32l()):
+                    cue = {}
+                    cue["id"] = self.buf.ru32l()
+                    cue["position"] = self.buf.ru32l()
+                    cue["data-chunk-id"] = self.buf.rs(4)
+                    cue["chunk-start"] = self.buf.ru32l()
+                    cue["block-start"] = self.buf.ru32l()
+                    cue["sample-offset"] = self.buf.ru32l()
+
+                    chunk["data"]["cues"].append(cue)
+            case "labl":
+                chunk["data"]["cue-id"] = self.buf.ru32l()
+                chunk["data"]["label"] = self.buf.rzs()
+            case "bext":
+                chunk["data"]["description"] = self.buf.rs(256).rstrip("\x00")
+                chunk["data"]["originator"] = self.buf.rs(32).rstrip("\x00")
+                chunk["data"]["originator-ref"] = self.buf.rs(32).rstrip(
+                    "\x00")
+                chunk["data"]["originator-date"] = self.buf.rs(10).rstrip(
+                    "\x00")
+                chunk["data"]["originator-time"] = self.buf.rs(8).rstrip(
+                    "\x00")
+                chunk["data"]["time-reference"] = self.buf.ru64l()
+                chunk["data"]["version"] = self.buf.ru16l()
+
+                if sum(self.buf.peek(64)):
+                    chunk["data"]["umid"] = self.buf.rh(64)
+                else:
+                    self.buf.skip(64)
+
+                if sum(self.buf.peek(190)):
+                    chunk["data"]["reserved"] = self.buf.rh(190)
+                else:
+                    self.buf.skip(190)
+
+                chunk["data"]["coding-history"] = utils.decode(
+                    self.buf.readunit()).rstrip("\x00")
+            case "iXML":
+                chunk["data"]["xml"] = utils.xml_to_dict(self.buf.readunit())
+            case "ID3 ":
+                with self.buf.subunit():
+                    chunk["data"]["id3-tag"] = chew(self.buf)
+            case "PAD " | "FLLR" | "filr":
+                content = self.buf.readunit()
+
+                chunk["data"]["non-zero"] = bool(sum(content))
+
+                if chunk["data"]["non-zero"]:
+                    chunk["data"]["data"] = chew(content)
             case "ICMT" | "ISFT":
                 chunk["data"]["comment"] = self.buf.readunit().decode(
                     "utf-8").rstrip("\x00")
@@ -354,6 +408,9 @@ class RIFFModule(module.RuminantModule):
                 pass
             case _:
                 chunk["data"]["unknown"] = True
+
+                with self.buf.subunit():
+                    chunk["data"]["blob"] = chew(self.buf)
 
         self.buf.skipunit()
         self.buf.popunit()

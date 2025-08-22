@@ -901,7 +901,7 @@ class JPEGModule(module.RuminantModule):
                 chunk["data"]["transform"] = self.buf.ru8()
             elif typ & 0xf0 == 0xe0:
                 chunk["data"]["payload"] = self.buf.readunit().hex()
-            elif typ == 0xc0:
+            elif typ in (0xc0, 0xc2):
                 chunk["data"]["sample-precision"] = self.buf.ru8()
                 chunk["data"]["height"] = self.buf.ru16()
                 chunk["data"]["width"] = self.buf.ru16()
@@ -953,6 +953,20 @@ class JPEGModule(module.RuminantModule):
                 chunk["data"]["image-length"] = self.buf.tell() - image_length
             elif typ == 0xfe:
                 chunk["data"]["comment"] = utils.decode(self.buf.readunit())
+            elif typ == 0xdb:
+                chunk["tables"] = []
+
+                while self.buf.unit > 0:
+                    table = {}
+
+                    temp = self.buf.ru8()
+
+                    table["precision"] = 8 << (temp >> 4)
+                    table["id"] = temp & 0x0f
+                    table["data"] = self.buf.rh(64 << (temp >> 4))
+
+                    chunk["tables"].append(table)
+
             elif typ == 0xd9:
                 should_break = True
 

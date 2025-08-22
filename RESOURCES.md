@@ -31,3 +31,4 @@ This is a list of useful resources.
 
 # ID3v2
 * https://id3.org/id3v2.4.0-structure
+* https://id3.org/id3v2.4.0-frames

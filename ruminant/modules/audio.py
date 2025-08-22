@@ -243,6 +243,7 @@ class ID3v2Module(module.RuminantModule):
                             content = content[2 if "16" in encoding else 1:]
 
                         frame["data"] = {}
+                        frame["data"]["encoding"] = encoding
                         frame["data"]["mime-type"] = mime_type.decode(encoding)
                         frame["data"]["image-type"] = utils.unraw(
                             content[0], 1, {
@@ -285,7 +286,91 @@ class ID3v2Module(module.RuminantModule):
 
                         frame["data"]["description"] = desc.decode(encoding)
                         frame["data"]["image"] = chew(content)
-                    case "TALB" | "TIT2" | "TYER" | "TXXX" | "TPE1" | "TSSE":
+                    case "COMM":
+                        encoding = {
+                            0: "latin-1",
+                            1: "utf-16",
+                            2: "utf-16be",
+                            3: "utf-8"
+                        }.get(content[0])
+                        content = content[1:]
+
+                        language = content[:3].decode("latin-1").rstrip("\x00")
+                        content = content[3:]
+
+                        short_description = b""
+                        while True:
+                            if content[0] == 0:
+                                if "16" in encoding and content[1] == 0:
+                                    content = content[2:]
+                                    break
+                                else:
+                                    content = content[1:]
+                                    break
+
+                            short_description += content[:2 if "16" in
+                                                         encoding else 1]
+                            content = content[2 if "16" in encoding else 1:]
+
+                        frame["data"] = {}
+                        frame["data"]["encoding"] = encoding
+                        frame["data"]["language"] = language
+                        frame["data"][
+                            "short-description"] = short_description.decode(
+                                encoding)
+                        frame["data"]["text"] = content.decode(
+                            encoding).rstrip("\x00")
+                    case "GEOB":
+                        encoding = {
+                            0: "latin-1",
+                            1: "utf-16",
+                            2: "utf-16be",
+                            3: "utf-8"
+                        }.get(content[0])
+                        content = content[1:]
+
+                        mime_type = b""
+                        while content[0]:
+                            mime_type += content[0:1]
+                            content = content[1:]
+                        content = content[1:]
+
+                        file_name = b""
+                        while True:
+                            if content[0] == 0:
+                                if "16" in encoding and content[1] == 0:
+                                    content = content[2:]
+                                    break
+                                else:
+                                    content = content[1:]
+                                    break
+
+                            file_name += content[:2 if "16" in encoding else 1]
+                            content = content[2 if "16" in encoding else 1:]
+
+                        description = b""
+                        while True:
+                            if content[0] == 0:
+                                if "16" in encoding and content[1] == 0:
+                                    content = content[2:]
+                                    break
+                                else:
+                                    content = content[1:]
+                                    break
+
+                            description += content[:2 if "16" in
+                                                   encoding else 1]
+                            content = content[2 if "16" in encoding else 1:]
+
+                        frame["data"] = {}
+                        frame["data"]["encoding"] = encoding
+                        frame["data"]["mime-type"] = mime_type.decode(
+                            "latin-1")
+                        frame["data"]["file-name"] = file_name.decode(encoding)
+                        frame["data"]["description"] = description.decode(
+                            encoding)
+                        frame["data"]["blob"] = chew(content)
+                    case "TALB" | "TIT1" | "TIT2" | "TIT3" | "TYER" | "TXXX" | "TPE1" | "TSSE" | "TCOM" | "TPUB" | "TOPE" | "TOAL":  # noqa: E501
                         frame["data"] = {}
                         frame["data"]["encoding"] = {
                             0: "latin-1",
