@@ -381,14 +381,25 @@ class RIFFModule(module.RuminantModule):
             case "ID3 ":
                 with self.buf.subunit():
                     chunk["data"]["id3-tag"] = chew(self.buf)
-            case "PAD " | "FLLR" | "filr":
+            case "SNDM":
+                chunk["data"]["entries"] = []
+
+                while self.buf.unit > 0:
+                    entry = {}
+                    length = self.buf.ru32()
+                    entry["key"] = self.buf.rs(4)
+                    self.buf.skip(4)
+                    entry["value"] = self.buf.rs(length - 12)
+
+                    chunk["data"]["entries"].append(entry)
+            case "PAD " | "FLLR" | "filr" | "regn":
                 content = self.buf.readunit()
 
                 chunk["data"]["non-zero"] = bool(sum(content))
 
                 if chunk["data"]["non-zero"]:
                     chunk["data"]["data"] = chew(content)
-            case "ICMT" | "ISFT":
+            case "ICMT" | "ISFT" | "INAM":
                 chunk["data"]["comment"] = self.buf.readunit().decode(
                     "utf-8").rstrip("\x00")
             case "RIFF" | "LIST" | "FORM":
