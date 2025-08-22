@@ -83,6 +83,8 @@
 1.2.840.10045.3.1.6: prime239v3
 1.2.840.10045.3.1.7: prime256v1
 1.2.840.10045.4: signatures
+1.2.840.10045.4.3: ecdsa-with-SHA2
+1.2.840.10045.4.3.2: ecdsa-with-SHA256
 1.2.840.10046: ansi-x942
 1.2.840.10065: astm-e31-20
 1.2.840.10065.2: healthcare-certificate-policy
@@ -1854,6 +1856,7 @@
 2.16.840.1.114412.31.4.31.1: digiCertGridHostCert
 2.16.840.1.114413.1.7.23.3: GoDaddy EV policy
 2.16.840.1.114414.1.7.23.3: Starfield EV policy
+2.23: international-organizations
 2.23.42.0: contentType
 2.23.42.0.0: panData
 2.23.42.0.1: panToken
@@ -1971,8 +1974,11 @@
 2.23.134.1.2.2.3: postSignumPublicCA
 2.23.134.1.4.2.1: postSignumRootQCA
 2.23.136.1.1.1: mRTDSignatureData
+2.23.140: ca-browser-forum
+2.23.140.1: certificate-policies
 2.23.140.1.1: evGuidelines
-2.23.140.1.2.1: domainValidated
+2.23.140.1.2: baseline-requirements
+2.23.140.1.2.1: domain-validated
 2.23.140.1.2.2: subjectIdentityValidated
 2.23.140.1.4.1: codeSigningRequirements
 2.54.1775.2: hashedRootKey

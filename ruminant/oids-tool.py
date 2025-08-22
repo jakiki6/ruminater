@@ -22,7 +22,10 @@ else:
 
 def insert(root, oid, name):
     if len(oid) == 1:
-        root[oid[0]] = {"name": name, "children": {}}
+        if oid[0] not in root:
+            root[oid[0]] = {"name": "?", "children": {}}
+
+        root[oid[0]]["name"] = name
     else:
         if oid[0] not in root:
             root[oid[0]] = {"name": "?", "children": {}}

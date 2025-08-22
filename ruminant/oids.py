@@ -21,4 +21,7 @@ with open(os.path.join(os.path.dirname(__file__), "oids.txt"), "r") as file:
 
             root = root[i]["children"]
 
-        root[key[-1]] = {"name": row[1], "children": {}}
+        if key[-1] not in root:
+            root[key[-1]] = {"name": "?", "children": {}}
+
+        root[key[-1]]["name"] = row[1]
