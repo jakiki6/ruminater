@@ -384,7 +384,7 @@ class RIFFModule(module.RuminantModule):
             case "SNDM":
                 chunk["data"]["entries"] = []
 
-                while self.buf.unit > 0:
+                while self.buf.unit >= 12:
                     entry = {}
                     length = self.buf.ru32()
                     entry["key"] = self.buf.rs(4)
@@ -399,7 +399,7 @@ class RIFFModule(module.RuminantModule):
 
                 if chunk["data"]["non-zero"]:
                     chunk["data"]["data"] = chew(content)
-            case "ICMT" | "ISFT" | "INAM":
+            case "ICMT" | "ISFT" | "INAM" | "IART" | "ICRD":
                 chunk["data"]["comment"] = self.buf.readunit().decode(
                     "utf-8").rstrip("\x00")
             case "RIFF" | "LIST" | "FORM":
