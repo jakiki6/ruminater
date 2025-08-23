@@ -33,13 +33,16 @@ def insert(root, oid, name):
         insert(root[oid[0]]["children"], oid[1:], name)
 
 
-for oid in todo:
-    name = input(f"{'.'.join(str(x) for x in oid)}: ")
+try:
+    for oid in todo:
+        name = input(f"{'.'.join(str(x) for x in oid)}: ")
 
-    if len(name.strip()) == 0:
-        continue
+        if len(name.strip()) == 0:
+            continue
 
-    insert(oids.OIDS, oid, name)
+        insert(oids.OIDS, oid, name)
+except EOFError:
+    pass
 
 
 def walk(root, file, base):
