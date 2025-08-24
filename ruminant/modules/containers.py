@@ -399,6 +399,9 @@ class RIFFModule(module.RuminantModule):
 
                 if chunk["data"]["non-zero"]:
                     chunk["data"]["data"] = chew(content)
+            case "EXIF":
+                with self.buf.subunit():
+                    chunk["data"]["exif"] = chew(self.buf)
             case "ICMT" | "ISFT" | "INAM" | "IART" | "ICRD":
                 chunk["data"]["comment"] = self.buf.readunit().decode(
                     "utf-8").rstrip("\x00")

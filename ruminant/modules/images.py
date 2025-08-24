@@ -1426,11 +1426,16 @@ class TIFFModule(module.RuminantModule):
     }
 
     def identify(buf):
-        return buf.peek(4) in (b"II*\x00", b"MM\x00*")
+        return buf.peek(4) in (b"II*\x00", b"MM\x00*", b"Exif")
 
     def chew(self):
         meta = {}
         meta["type"] = "tiff"
+
+        base = 0
+        if self.buf.peek(4) == b"Exif":
+            self.buf.skip(6)
+            base = 6
 
         header = self.buf.read(4)
         le = header[0] == 0x49
@@ -1453,7 +1458,7 @@ class TIFFModule(module.RuminantModule):
                 else:
                     break
 
-            self.buf.seek(offset)
+            self.buf.seek(offset + base)
 
             entry_count = self.buf.ru16l() if le else self.buf.ru16()
             for i in range(0, entry_count):
@@ -1467,7 +1472,7 @@ class TIFFModule(module.RuminantModule):
                                f" (0x{hex(field_type)[2:].zfill(4)})")
                 count = self.buf.ru32l() if le else self.buf.ru32()
                 tag["count"] = count
-                offset_field_offset = self.buf.tell()
+                offset_field_offset = self.buf.tell() - base
                 tag_offset = self.buf.ru32l() if le else self.buf.ru32()
                 tag["offset-or-value"] = tag_offset
 
@@ -1476,9 +1481,9 @@ class TIFFModule(module.RuminantModule):
                     if ((field_type in (1, 2, 7) and count <= 4)
                             or (field_type in (3, 8, 11) and count <= 2)
                             or (field_type in (4, 9, 12) and count <= 1)):
-                        self.buf.seek(offset_field_offset)
+                        self.buf.seek(offset_field_offset + base)
                     else:
-                        self.buf.seek(tag_offset)
+                        self.buf.seek(tag_offset + base)
 
                     for i in range(0, count):
                         match field_type:
@@ -1556,7 +1561,7 @@ class TIFFModule(module.RuminantModule):
                 if (thumbnail_tag is not None and thumbnail_offset is not None
                         and thumbnail_length is not None):
                     with self.buf:
-                        self.buf.seek(thumbnail_offset)
+                        self.buf.seek(thumbnail_offset + base)
 
                         with self.buf.sub(thumbnail_length):
                             thumbnail_tag["parsed"] = chew(self.buf)
