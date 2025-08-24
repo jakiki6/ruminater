@@ -5,7 +5,10 @@ import base64
 @module.register
 class PdfTimestampSignatureModule(module.RuminantModule):
 
-    def identify(buf):
+    def identify(buf, ctx):
+        if ctx.get("walk", False):
+            return False
+
         with buf:
             buf.skip(27)
             return buf.peek(2) == b"\x30\x82"
@@ -23,7 +26,7 @@ class PdfTimestampSignatureModule(module.RuminantModule):
 @module.register
 class DerModule(module.RuminantModule):
 
-    def identify(buf):
+    def identify(buf, ctx):
         return buf.pu8() == 0x30 and (buf.pu16() & 0xf0) in (0x80, 0x30)
 
     def chew(self):
@@ -38,7 +41,7 @@ class DerModule(module.RuminantModule):
 @module.register
 class PemModule(module.RuminantModule):
 
-    def identify(buf):
+    def identify(buf, ctx):
         return buf.peek(27) == b"-----BEGIN CERTIFICATE-----"
 
     def chew(self):
@@ -66,7 +69,7 @@ class PemModule(module.RuminantModule):
 @module.register
 class PgpModule(module.RuminantModule):
 
-    def identify(buf):
+    def identify(buf, ctx):
         with buf:
             if buf.pu8() in (0x85, 0x89) and buf.peek(4)[3] in (0x03, 0x04):
                 return True

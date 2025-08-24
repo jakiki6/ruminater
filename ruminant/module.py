@@ -11,7 +11,7 @@ class RuminantModule(object):
     def __init__(self, buf):
         self.buf = buf
 
-    def identify(buf):
+    def identify(buf, ctx={}):
         return False
 
     def chew(self):

@@ -8,7 +8,7 @@ import re
 @module.register
 class ZipModule(module.RuminantModule):
 
-    def identify(buf):
+    def identify(buf, ctx):
         return buf.peek(4) == b"\x50\x4b\x03\x04"
 
     def chew(self):
@@ -87,7 +87,7 @@ class ZipModule(module.RuminantModule):
 @module.register
 class RIFFModule(module.RuminantModule):
 
-    def identify(buf):
+    def identify(buf, ctx):
         return buf.peek(4) in (b"RIFF", b"AT&T")
 
     def chew(self):
@@ -435,7 +435,7 @@ class RIFFModule(module.RuminantModule):
 @module.register
 class TarModule(module.RuminantModule):
 
-    def identify(buf):
+    def identify(buf, ctx):
         return buf.peek(262)[257:] == b"ustar"
 
     def chew(self):

@@ -223,7 +223,7 @@ class IPTCIIMModule(module.RuminantModule):
         }
     }
 
-    def identify(buf):
+    def identify(buf, ctx):
         return buf.peek(18) == b"Photoshop 3.0\x008BIM"
 
     def chew(self):
@@ -586,7 +586,7 @@ class ICCProfileModule(module.RuminantModule):
 
         return tag
 
-    def identify(buf):
+    def identify(buf, ctx):
         return buf.peek(12) == b"ICC_PROFILE\x00" or buf.peek(8)[4:] in (
             b"Lino", b"appl")
 
@@ -774,7 +774,7 @@ class JPEGModule(module.RuminantModule):
         0x01: "TEM",
     }
 
-    def identify(buf):
+    def identify(buf, ctx):
         return buf.peek(3) == b"\xff\xd8\xff"
 
     def chew(self):
@@ -981,7 +981,7 @@ class JPEGModule(module.RuminantModule):
 @module.register
 class PNGModule(module.RuminantModule):
 
-    def identify(buf):
+    def identify(buf, ctx):
         return buf.peek(8) == b"\x89PNG\r\n\x1a\n"
 
     def chew(self):
@@ -1425,7 +1425,7 @@ class TIFFModule(module.RuminantModule):
         12: "Double",
     }
 
-    def identify(buf):
+    def identify(buf, ctx):
         return buf.peek(4) in (b"II*\x00", b"MM\x00*", b"Exif")
 
     def chew(self):
@@ -1580,7 +1580,7 @@ class TIFFModule(module.RuminantModule):
 @module.register
 class GifModule(module.RuminantModule):
 
-    def identify(buf):
+    def identify(buf, ctx):
         return buf.peek(3) == b"GIF"
 
     def chew(self):

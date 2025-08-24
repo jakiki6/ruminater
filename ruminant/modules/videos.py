@@ -18,7 +18,7 @@ def mp4_decode_language(lang_bytes):
 @module.register
 class IsoModule(module.RuminantModule):
 
-    def identify(buf):
+    def identify(buf, ctx):
         return buf.peek(8)[4:] == b"ftyp"
 
     def chew(self):
@@ -1388,7 +1388,7 @@ class MatroskaModule(module.RuminantModule):
         0x447b: ("TagLanguageBCP47", "ascii")
     }
 
-    def identify(buf):
+    def identify(buf, ctx):
         return buf.peek(4) == b"\x1a\x45\xdf\xa3"
 
     def chew(self):
@@ -1513,7 +1513,7 @@ class MatroskaModule(module.RuminantModule):
 @module.register
 class OggModule(module.RuminantModule):
 
-    def identify(buf):
+    def identify(buf, ctx):
         return buf.peek(4) == b"OggS"
 
     def chew(self):

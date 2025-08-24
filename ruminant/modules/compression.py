@@ -9,7 +9,7 @@ import zlib
 @module.register
 class GzipModule(module.RuminantModule):
 
-    def identify(buf):
+    def identify(buf, ctx):
         return buf.peek(2) == b"\x1f\x8b"
 
     def chew(self):
@@ -109,7 +109,7 @@ class GzipModule(module.RuminantModule):
 @module.register
 class Bzip2Module(module.RuminantModule):
 
-    def identify(buf):
+    def identify(buf, ctx):
         return buf.peek(2) == b"BZ"
 
     def chew(self):

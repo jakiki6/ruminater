@@ -28,7 +28,7 @@ class EntryModule(module.RuminantModule):
 
         matched = False
         for m in module.modules:
-            if m.identify(self.buf):
+            if m.identify(self.buf, {"walk": self.walk_mode}):
                 try:
                     rest = m(self.buf).chew()
                 except Exception as e:

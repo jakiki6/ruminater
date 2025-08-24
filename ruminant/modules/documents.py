@@ -11,7 +11,7 @@ import math
 @module.register
 class DocxModule(module.RuminantModule):
 
-    def identify(buf):
+    def identify(buf, ctx):
         return False  # TODO
 
     def chew(self):
@@ -127,7 +127,7 @@ class PdfModule(module.RuminantModule):
     INDIRECT_OBJECT_PATTERN = re.compile(r"^(\d+) (\d+) R$")
     XREF_PATTERN = re.compile(r"^(\d{10}) (\d{5}) ([nf]).*$")
 
-    def identify(buf):
+    def identify(buf, ctx):
         return buf.peek(5) == b"%PDF-"
 
     def chew(self):

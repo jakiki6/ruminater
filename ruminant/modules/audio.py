@@ -6,7 +6,7 @@ import zlib
 @module.register
 class FlacModule(module.RuminantModule):
 
-    def identify(buf):
+    def identify(buf, ctx):
         return buf.peek(4) == b"fLaC"
 
     def chew(self):
@@ -113,7 +113,7 @@ class FlacModule(module.RuminantModule):
 @module.register
 class ID3v2Module(module.RuminantModule):
 
-    def identify(buf):
+    def identify(buf, ctx):
         return buf.peek(3) == b"ID3"
 
     def read_length(self):
