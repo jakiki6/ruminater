@@ -1,4 +1,5 @@
 from .. import module, utils, constants
+from . import chew
 
 
 @module.register
@@ -481,6 +482,27 @@ class TrueTypeModule(module.RuminantModule):
                     case "gasp":
                         table["data"]["version"] = self.buf.ru16()
                         table["data"]["range-count"] = self.buf.ru16()
+                    case "meta":
+                        base = self.buf.tell()
+
+                        table["data"]["version"] = self.buf.ru32()
+                        table["data"]["flags"] = self.buf.ru32()
+                        table["data"]["reserved"] = self.buf.ru32()
+                        table["data"]["tag-count"] = self.buf.ru32()
+
+                        table["data"]["tags"] = []
+                        for i in range(0, table["data"]["tag-count"]):
+                            tag = {}
+                            tag["type"] = self.buf.rs(4)
+                            tag["offset"] = self.buf.ru32()
+                            tag["length"] = self.buf.ru32()
+
+                            with self.buf:
+                                self.buf.seek(tag["offset"] + base)
+                                tag["data"] = utils.decode(
+                                    self.buf.read(tag["length"]))
+
+                            table["data"]["tags"].append(tag)
                     case "glyf" | "hmtx" | "loca" | "GDEF" | "GPOS" | "GSUB":
                         # not really parsable as it's the raw glyph data
                         pass
@@ -492,6 +514,53 @@ class TrueTypeModule(module.RuminantModule):
         for table in meta["tables"]:
             if table["offset"] + table["length"] > self.buf.tell():
                 self.buf.seek(table["offset"])
-                self.buf.skip(table["length"] + 1)
+                self.buf.skip(table["length"])
+
+        if self.buf.available(
+        ) > 4 and self.buf.pu64() & 0xffffffffff00fffe == 0x0000000100000000:
+            dsig = {}
+            meta["dsig"] = dsig
+
+            base = self.buf.tell()
+
+            dsig["version"] = self.buf.ru32()
+            dsig["signature-count"] = self.buf.ru16()
+            flags = self.buf.ru16()
+            dsig["flags"] = {"raw": flags, "no-resigning": bool(flags & 0x01)}
+
+            most_offset = self.buf.tell()
+
+            dsig["signatures"] = []
+            for i in range(0, dsig["signature-count"]):
+                sig = {}
+                sig["format"] = self.buf.ru32()
+                sig["length"] = self.buf.ru32()
+                sig["offset"] = self.buf.ru32()
+
+                most_offset = max(most_offset,
+                                  sig["offset"] + sig["length"] + base)
+
+                with self.buf:
+                    self.buf.seek(sig["offset"] + base)
+                    self.buf.pushunit()
+                    self.buf.setunit(sig["length"])
+
+                    match sig["format"]:
+                        case 1:
+                            sig["reserved"] = self.buf.rh(4)
+                            sig["length"] = self.buf.ru32()
+                            sig["data"] = utils.read_der(self.buf)
+                        case _:
+                            sig["unknown"] = True
+                            with self.subunit():
+                                sig["data"] = chew(self.buf)
+
+                    self.buf.skipunit()
+                    self.buf.popunit()
+
+                dsig["signatures"].append(sig)
+
+            # there are 2 random zero bytes at the end for no fucking reason
+            self.buf.seek(most_offset + 2)
 
         return meta
