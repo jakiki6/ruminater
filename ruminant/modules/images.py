@@ -638,8 +638,8 @@ class ICCProfileModule(module.RuminantModule):
             self.buf.rsfp32() for _ in range(0, 3)
         ]
         meta["data"]["profile-creator"] = self.buf.rs(4)
-        meta["data"]["profile-id"] = self.buf.rh(4)
-        meta["data"]["reserved"] = self.buf.rh(40)
+        meta["data"]["profile-md5"] = self.buf.rh(16)
+        meta["data"]["reserved"] = self.buf.rh(28)
 
         tag_count = self.buf.ru32()
         meta["data"]["tag-count"] = tag_count
