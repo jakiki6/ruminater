@@ -277,7 +277,7 @@ def read_der(buf):
         if not constructed:
             content = buf.readunit()
 
-            if tag & 0x0f == 0x06:
+            if tag & 0x0f in (0x02, 0x06):
                 data["value"] = content.decode("latin-1")
             else:
                 data["value"] = content.hex()
